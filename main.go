@@ -1,16 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"image"
 	"image/color"
 	"io"
 	"log"
-	"net/http"
-	"net/http/cookiejar"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"unsafe"
@@ -23,10 +19,8 @@ import (
 	"github.com/grafov/m3u8"
 )
 
-func init() {
-	avformat.AvRegisterAll()
+const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
 
-}
 func main() {
 	mk, cleanup, err := MkFIFOFactory()
 	if err != nil {
@@ -38,9 +32,14 @@ func main() {
 			fmt.Println("MkFIFOFactory()cleanup()", err)
 		}
 	}()
+
 	imageChan := make(chan image.Image)
 	go consumeImages(imageChan)
-	const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
+	defer close(imageChan)
+
+	segmentChan := make(chan url.URL)
+	go consumeSegments(segmentChan)
+	defer close(segmentChan)
 
 	u, err := url.Parse(streamURL)
 	if err != nil {
@@ -48,107 +47,56 @@ func main() {
 	}
 
 	ctx := context.Background()
-	client := &http.Client{}
-	client.Jar, err = cookiejar.New(nil)
+
+	mediapl, err := doPlaylist(ctx, streamURL)
 	if err != nil {
 		panic(err)
 	}
+	var seg *m3u8.MediaSegment
 
-	httpGet := func(ctx context.Context, url string) (*http.Response, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	for _, mySeg := range mediapl.Segments {
+		if mySeg == nil {
+			continue
+		}
+		seg = mySeg
+	}
+	if seg != nil {
+		tsURL, err := u.Parse(seg.URI)
 		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Referer", "https://kcnawatch.org/korea-central-tv-livestream/")
-		req.Header.Set("Accept", "*/*")
-		req.Header.Set("Cookie", " __qca=P0-44019880-1616793366216; _ga=GA1.2.978268718.1616793363; _gid=GA1.2.523786624.1616793363")
-		req.Header.Set("Accept-Language", "en-us")
-		req.Header.Set("Accept-Encoding", "identity")
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15")
-		// req.Header.Set("X-Playback-Session-Id", "F896728B-8636-4BB1-B4FF-1B235EB4ED9E")
-
-		if s, err := httputil.DumpRequest(req, false); err != nil {
 			panic(err)
-		} else {
-			fmt.Println(string(s))
 		}
 
-		resp, err := client.Do(req)
-		if resp.StatusCode != http.StatusOK {
-			return resp, fmt.Errorf("bad http code %d", resp.StatusCode)
-		}
-		fmt.Println(resp.Header.Get("content-type"))
-
-		if s, err := httputil.DumpResponse(resp, false); err != nil {
+		tsResp, err := httpGet(ctx, tsURL.String())
+		if err != nil {
 			panic(err)
-		} else {
-			fmt.Println(string(s))
 		}
-		return resp, err
-	}
-	resp, err := httpGet(ctx, streamURL)
-
-	p, listType, err := m3u8.DecodeFrom(bufio.NewReader(resp.Body), true)
-	if err != nil {
-		panic(err)
-	}
-	resp.Body.Close()
-	fmt.Println("After 1st request:")
-	for _, cookie := range client.Jar.Cookies(u) {
-		fmt.Printf("  %s: %s\n", cookie.Name, cookie.Value)
-	}
-
-	switch listType {
-	case m3u8.MEDIA:
-		mediapl := p.(*m3u8.MediaPlaylist)
-		var seg *m3u8.MediaSegment
-
-		for _, mySeg := range mediapl.Segments {
-			if mySeg == nil {
-				continue
-			}
-			seg = mySeg
+		path, cleanup, err := mk()
+		if err != nil {
+			fmt.Println("mkfifo", err)
+			return
 		}
-		if seg != nil {
-			tsURL, err := u.Parse(seg.URI)
+		go func() {
+			out, err := os.Create(path)
 			if err != nil {
-				panic(err)
-			}
-
-			tsResp, err := httpGet(ctx, tsURL.String())
-			if err != nil {
-				panic(err)
-			}
-			path, cleanup, err := mk()
-			if err != nil {
-				fmt.Println("mkfifo", err)
+				fmt.Println("fifo os.Create", err)
 				return
 			}
-			go func() {
-				out, err := os.Create(path)
-				if err != nil {
-					fmt.Println("fifo os.Create", err)
-					return
-				}
-				fmt.Println("🥵 1")
-				if i, err := io.Copy(out, tsResp.Body); err != nil {
-					fmt.Println("fifo io.Copy", i, err)
-					// return
-				}
-			}()
-			fmt.Println("🥵 2")
-			fmt.Println("frame ", path)
-			ProcessFrame(imageChan, path)
-			if err := cleanup(); err != nil {
-				fmt.Println("mkfifo cleanup", err)
+			if i, err := io.Copy(out, tsResp.Body); err != nil {
+				fmt.Println("fifo io.Copy", i, err)
+				// return
 			}
-			tsResp.Body.Close()
-			break
+		}()
+		fmt.Println("frame ", path)
+		ProcessFrame(imageChan, path)
+		if err := cleanup(); err != nil {
+			fmt.Println("mkfifo cleanup", err)
 		}
-	default:
-		panic(listType)
+		tsResp.Body.Close()
 	}
-	close(imageChan)
+}
+
+func init() {
+	avformat.AvRegisterAll()
 }
 
 func ProcessFrame(imageChan chan image.Image, file string) {
