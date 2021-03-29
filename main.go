@@ -19,13 +19,12 @@ var cleanup func() error
 var globalWG sync.WaitGroup
 
 var (
-	flagSet  = flag.NewFlagSet("", flag.ExitOnError)
+	flagSet  = flag.NewFlagSet("q", flag.ExitOnError)
 	dumpHttp = flagSet.Bool("dump-http", false, "dumps http headers")
+	ansiArt  = flagSet.Int("ansi-art", 1, "output ansi art on modulo frame")
 )
 
 func main() {
-	flagSet.Parse(os.Args)
-
 	var err error
 	mk, cleanup, err = MkFIFOFactory()
 	if err != nil {

@@ -1,14 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"image"
-	"image/color"
 	"log"
 	"os"
 	"unsafe"
 
-	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/giorgisio/goav/avcodec"
 	"github.com/giorgisio/goav/avformat"
 	"github.com/giorgisio/goav/avutil"
@@ -19,7 +18,7 @@ func init() {
 	avformat.AvRegisterAll()
 }
 
-func ProcessFrame(imageChan chan image.Image, file string) {
+func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) {
 	pFormatContext := avformat.AvformatAllocContext()
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if avformat.AvformatOpenInput(&pFormatContext, file, nil, nil) != 0 {
@@ -137,17 +136,10 @@ func ProcessFrame(imageChan chan image.Image, file string) {
 							} else {
 								// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
 								// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
-								imageChan <- img
-
-								// fmt.Println("dim", img.Rect)
-								// ansi, err := ansimage.New(40, 120, color.Black, ansimage.DitheringWithBlocks)
-								if frameNumber < 10 {
-									ansi, err := ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithBlocks)
-									if err != nil {
-										fmt.Println(err)
-									} else {
-										ansi.Draw()
-									}
+								select {
+								case <-ctx.Done():
+									return
+								case imageChan <- img:
 								}
 							}
 						} else {

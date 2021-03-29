@@ -4,17 +4,22 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
 
 	"github.com/corona10/goimagehash"
+	"github.com/eliukblau/pixterm/pkg/ansimage"
 )
 
 const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
+var (
+	firstHash          *goimagehash.ExtImageHash
+	firstHashAvg       *goimagehash.ImageHash
+	globalFrameCounter int
+)
 
 func consumeImages(ctx context.Context, c <-chan image.Image) {
 	defer globalWG.Done()
-	var firstHash *goimagehash.ExtImageHash
-	var firstHashAvg *goimagehash.ImageHash
-	var i int
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -23,6 +28,21 @@ func consumeImages(ctx context.Context, c <-chan image.Image) {
 			if img == nil {
 				return
 			}
+			func(img image.Image) {
+				if *ansiArt == 0 {
+					return
+				}
+				if globalFrameCounter%*ansiArt != 0 {
+					return
+				}
+				ansi, err := ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					fmt.Print("\033[H\033[2J") // flicker
+					ansi.Draw()
+				}
+			}(img)
 			func(img image.Image) {
 				hash, err := goimagehash.ExtPerceptionHash(img, goimagehashDim, goimagehashDim)
 				if err != nil {
@@ -38,7 +58,7 @@ func consumeImages(ctx context.Context, c <-chan image.Image) {
 					fmt.Println("consumeImages: ExtPerceptionHash Distance error", err)
 					return
 				}
-				fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", i, distance)
+				fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance)
 			}(img)
 			func(img image.Image) {
 				hash, err := goimagehash.AverageHash(img)
@@ -55,9 +75,9 @@ func consumeImages(ctx context.Context, c <-chan image.Image) {
 					fmt.Println("consumeImages: AverageHash Distance error", err)
 					return
 				}
-				fmt.Printf("[%d] AverageHash distance is %d\n", i, distance)
+				fmt.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance)
 			}(img)
-			i++
+			globalFrameCounter++
 		}
 	}
 }

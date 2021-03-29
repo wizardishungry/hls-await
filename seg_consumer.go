@@ -13,14 +13,16 @@ import (
 
 var segmentMap map[url.URL]struct{} = make(map[url.URL]struct{})
 
-func processSegments(ctx context.Context, u *url.URL, mediaplChan <-chan *m3u8.MediaPlaylist) {
-}
-
 func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL, mediapl *m3u8.MediaPlaylist) {
 
 	for _, seg := range mediapl.Segments {
 		if seg == nil {
 			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
 
 		tsURL, err := u.Parse(seg.URI)
@@ -34,7 +36,8 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		func() {
 			tsResp, err := httpGet(ctx, tsURL.String())
 			if err != nil {
-				panic(err)
+				fmt.Println("httpGet", err)
+				return
 			}
 			defer tsResp.Body.Close()
 
@@ -55,13 +58,18 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 					fmt.Println("fifo os.Create", err)
 					return
 				}
+				defer func() {
+					if err := out.Close(); err != nil {
+						fmt.Println("fifo os.Close", err)
+					}
+				}()
 				if i, err := io.Copy(out, tsResp.Body); err != nil {
 					fmt.Println("fifo io.Copy", i, err)
 					// return
 				}
 			}()
 			fmt.Println("frame ", path)
-			ProcessFrame(imageChan, path)
+			ProcessFrame(ctx, imageChan, path)
 			segmentMap[*tsURL] = struct{}{}
 		}()
 	}
