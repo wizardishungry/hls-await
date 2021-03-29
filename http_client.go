@@ -33,22 +33,28 @@ func httpGet(ctx context.Context, url string) (*http.Response, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15")
 	// req.Header.Set("X-Playback-Session-Id", "F896728B-8636-4BB1-B4FF-1B235EB4ED9E")
 
-	if s, err := httputil.DumpRequest(req, false); err != nil {
-		panic(err)
-	} else {
-		fmt.Println(string(s))
+	if *dumpHttp {
+		if s, err := httputil.DumpRequest(req, false); err != nil {
+			panic(err)
+		} else {
+			fmt.Println(string(s))
+		}
 	}
 
 	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return resp, fmt.Errorf("bad http code %d", resp.StatusCode)
 	}
-	fmt.Println(resp.Header.Get("content-type"))
 
-	if s, err := httputil.DumpResponse(resp, false); err != nil {
-		panic(err)
-	} else {
-		fmt.Println(string(s))
+	if *dumpHttp {
+		if s, err := httputil.DumpResponse(resp, false); err != nil {
+			panic(err)
+		} else {
+			fmt.Println(string(s))
+		}
 	}
 	return resp, err
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"image"
 
@@ -9,12 +10,15 @@ import (
 
 const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
 
-func consumeImages(c <-chan image.Image) {
+func consumeImages(ctx context.Context, c <-chan image.Image) {
+	defer globalWG.Done()
 	var firstHash *goimagehash.ExtImageHash
 	var firstHashAvg *goimagehash.ImageHash
 	var i int
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case img := <-c:
 			if img == nil {
 				return
