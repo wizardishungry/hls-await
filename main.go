@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"image"
 	"image/color"
+	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
@@ -26,7 +28,18 @@ func init() {
 
 }
 func main() {
-
+	mk, cleanup, err := MkFIFOFactory()
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := cleanup()
+		if err != nil {
+			fmt.Println("MkFIFOFactory()cleanup()", err)
+		}
+	}()
+	imageChan := make(chan image.Image)
+	go consumeImages(imageChan)
 	const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
 
 	u, err := url.Parse(streamURL)
@@ -106,18 +119,42 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			ProcessFrame()
+			path, cleanup, err := mk()
+			if err != nil {
+				fmt.Println("mkfifo", err)
+				return
+			}
+			go func() {
+				out, err := os.Create(path)
+				if err != nil {
+					fmt.Println("fifo os.Create", err)
+					return
+				}
+				fmt.Println("🥵 1")
+				if i, err := io.Copy(out, tsResp.Body); err != nil {
+					fmt.Println("fifo io.Copy", i, err)
+					// return
+				}
+			}()
+			fmt.Println("🥵 2")
+			fmt.Println("frame ", path)
+			ProcessFrame(imageChan, path)
+			if err := cleanup(); err != nil {
+				fmt.Println("mkfifo cleanup", err)
+			}
 			tsResp.Body.Close()
 			break
 		}
 	default:
 		panic(listType)
 	}
+	close(imageChan)
 }
 
-func ProcessFrame() {
+func ProcessFrame(imageChan chan image.Image, file string) {
 	pFormatContext := avformat.AvformatAllocContext()
-	if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
+	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
+	if avformat.AvformatOpenInput(&pFormatContext, file, nil, nil) != 0 {
 		log.Println("Error: Couldn't open file.")
 		return
 	}
@@ -133,7 +170,8 @@ func ProcessFrame() {
 	}
 
 	// Dump information about file onto standard error
-	pFormatContext.AvDumpFormat(0, "x.ts", 0)
+	// pFormatContext.AvDumpFormat(0, "x.ts", 0)
+	pFormatContext.AvDumpFormat(0, file, 0)
 
 	// Find the first video stream
 	for i := 0; i < int(pFormatContext.NbStreams()); i++ {
@@ -198,7 +236,7 @@ func ProcessFrame() {
 
 			// Read frames and save first five frames to disk
 			frameNumber := 1
-			packet := avcodec.AvPacketAlloc()
+			packet := avcodec.AvPacketAlloc() // TODO sync.Pool
 			for pFormatContext.AvReadFrame(packet) >= 0 {
 				// Is this a packet from the video stream?
 				if packet.StreamIndex() == i {
@@ -216,30 +254,36 @@ func ProcessFrame() {
 							return
 						}
 
-						if frameNumber <= 5 {
+						if frameNumber <= 5000000000000000000 {
 							// Convert the image from its native format to RGB
 							swscale.SwsScale2(swsCtx, avutil.Data(pFrame),
 								avutil.Linesize(pFrame), 0, pCodecCtx.Height(),
 								avutil.Data(pFrameRGB), avutil.Linesize(pFrameRGB))
 
 							// Save the frame to disk
-							fmt.Printf("Writing frame %d\n", frameNumber)
+							// fmt.Printf("Writing frame %d\n", frameNumber)
 							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
 							img, err := avutil.GetPicture(pFrame)
 							if err != nil {
-								fmt.Println(err)
+								fmt.Println("get pic", err)
 							} else {
-								fmt.Println("dim", img.Rect)
+								// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
+								// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
+								imageChan <- img
+
+								// fmt.Println("dim", img.Rect)
 								// ansi, err := ansimage.New(40, 120, color.Black, ansimage.DitheringWithBlocks)
-								ansi, err := ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithBlocks)
-								if err != nil {
-									fmt.Println(err)
-								} else {
-									ansi.Draw()
+								if frameNumber < 10 {
+									ansi, err := ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithBlocks)
+									if err != nil {
+										fmt.Println(err)
+									} else {
+										ansi.Draw()
+									}
 								}
 							}
 						} else {
-							return
+							//goto DONE
 						}
 						frameNumber++
 					}
@@ -248,8 +292,6 @@ func ProcessFrame() {
 				// Free the packet that was allocated by av_read_frame
 				packet.AvFreePacket()
 			}
-
-			// Free the RGB image
 			avutil.AvFree(buffer)
 			avutil.AvFrameFree(pFrameRGB)
 
@@ -261,7 +303,7 @@ func ProcessFrame() {
 			(*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig)).AvcodecClose()
 
 			// Close the video file
-			pFormatContext.AvformatCloseInput()
+			//pFormatContext.AvformatCloseInput() // TODO commented
 
 			// Stop after saving frames of first video straem
 			break
