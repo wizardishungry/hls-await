@@ -14,8 +14,20 @@ import (
 var segmentMap map[url.URL]struct{} = make(map[url.URL]struct{})
 
 func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL, mediapl *m3u8.MediaPlaylist) {
-
+	count := 0
 	for _, seg := range mediapl.Segments {
+		if seg == nil {
+			continue
+		}
+		count++
+	}
+	fmt.Println("media segment count is", count)
+	fmt.Println("fast start count is", *flagFastStart)
+	if !*flagFastResume {
+		defer func() { *flagFastStart = 0 }()
+	}
+	segs := mediapl.Segments
+	for i, seg := range segs {
 		if seg == nil {
 			continue
 		}
@@ -29,11 +41,12 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		if err != nil {
 			panic(err)
 		}
-		if _, ok := segmentMap[*tsURL]; ok {
-			fmt.Println("skipping", tsURL)
+		if _, ok := segmentMap[*tsURL]; ok || (*flagFastStart > 0 && *flagFastStart+i < count) {
+			segmentMap[*tsURL] = struct{}{}
 			continue
 		}
 		func() {
+			fmt.Println("getting", tsURL.String())
 			tsResp, err := httpGet(ctx, tsURL.String())
 			if err != nil {
 				fmt.Println("httpGet", err)

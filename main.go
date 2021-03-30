@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/looplab/fsm"
 )
 
 const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
@@ -19,12 +21,33 @@ var cleanup func() error
 var globalWG sync.WaitGroup
 
 var (
-	flagSet  = flag.NewFlagSet("q", flag.ExitOnError)
-	dumpHttp = flagSet.Bool("dump-http", false, "dumps http headers")
-	ansiArt  = flagSet.Int("ansi-art", 1, "output ansi art on modulo frame")
+	flagDumpHttp   = flag.Bool("dump-http", false, "dumps http headers")
+	flagAnsiArt    = flag.Int("ansi-art", 0, "output ansi art on modulo frame")
+	flagThreshold  = flag.Int("threshold", 1, "need this much to output a warning")
+	flagFlicker    = flag.Bool("flicker", false, "reset terminal in ansi mode")
+	flagFastStart  = flag.Int("fast-start", 1, "start by only processing this many recent segments")
+	flagFastResume = flag.Bool("fast-resume", true, "if we see a bunch of new segments, behave like fast start")
+	flagDumpFSM    = flag.Bool("dump-fsm", false, "write graphviz src and exit")
+	flagOneShot    = flag.Bool("one-shot", true, "render an ascii frame when entering up state")
 )
 
+var myFSM = NewFSM()
+
+func pushEvent(s string) {
+	err := myFSM.Target.Event(s)
+	if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
+		fmt.Println("push event error", s, err, myFSM.Target.Current())
+	}
+}
+
 func main() {
+	flag.Parse()
+
+	if *flagDumpFSM {
+		fmt.Println(fsm.Visualize(myFSM.FSM))
+		os.Exit(0)
+	}
+
 	var err error
 	mk, cleanup, err = MkFIFOFactory()
 	if err != nil {
@@ -47,16 +70,26 @@ func main() {
 	}
 
 	killSignal := make(chan os.Signal, 0)
-	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGINFO, os.Interrupt, os.Kill)
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	globalWG.Add(1)
 	go processPlaylist(ctx, u)
 
-	select {
-	case s := <-killSignal:
-		ctxCancel()
-		fmt.Println("exiting ", s)
+LOOP:
+	for {
+		select {
+		case s := <-killSignal:
+			if s == syscall.SIGINFO {
+				fmt.Println("siginfo")
+				oneShot <- struct{}{}
+				break
+			}
+			ctxCancel()
+			fmt.Println("exiting ", s)
+			break LOOP
+		}
 	}
+
 	globalWG.Wait()
 }

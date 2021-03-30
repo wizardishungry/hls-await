@@ -8,5 +8,6 @@ require (
 	github.com/eliukblau/pixterm v1.3.1
 	github.com/giorgisio/goav v0.1.0
 	github.com/grafov/m3u8 v0.11.1
+	github.com/looplab/fsm v0.2.0
 	github.com/stretchr/testify v1.7.0
 )

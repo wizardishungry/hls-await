@@ -17,29 +17,44 @@ var (
 	globalFrameCounter int
 )
 
-func consumeImages(ctx context.Context, c <-chan image.Image) {
+func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struct{}) {
 	defer globalWG.Done()
+
+	oneShot := false
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-cAnsi:
+			if *flagOneShot {
+				oneShot = true
+				fmt.Println("photo time!")
+			}
 		case img := <-c:
 			if img == nil {
 				return
 			}
 			func(img image.Image) {
-				if *ansiArt == 0 {
+				if oneShot {
+					oneShot = false
+					goto CLICK
+
+				}
+				if *flagAnsiArt == 0 {
 					return
 				}
-				if globalFrameCounter%*ansiArt != 0 {
+				if globalFrameCounter%*flagAnsiArt != 0 {
 					return
 				}
+			CLICK:
 				ansi, err := ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					fmt.Print("\033[H\033[2J") // flicker
+					if *flagFlicker {
+						fmt.Print("\033[H\033[2J") // flicker
+					}
 					ansi.Draw()
 				}
 			}(img)
@@ -58,7 +73,13 @@ func consumeImages(ctx context.Context, c <-chan image.Image) {
 					fmt.Println("consumeImages: ExtPerceptionHash Distance error", err)
 					return
 				}
-				fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance)
+				if distance >= *flagThreshold {
+					firstHash = hash
+					fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance)
+					pushEvent("unsteady")
+				} else {
+					pushEvent("steady")
+				}
 			}(img)
 			func(img image.Image) {
 				hash, err := goimagehash.AverageHash(img)
@@ -75,7 +96,10 @@ func consumeImages(ctx context.Context, c <-chan image.Image) {
 					fmt.Println("consumeImages: AverageHash Distance error", err)
 					return
 				}
-				fmt.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance)
+				if distance >= *flagThreshold {
+					firstHashAvg = hash
+					fmt.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance)
+				}
 			}(img)
 			globalFrameCounter++
 		}
