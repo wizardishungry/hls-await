@@ -18,9 +18,12 @@ const (
 
 func doPlaylist(ctx context.Context, u *url.URL) (*m3u8.MediaPlaylist, error) {
 	resp, err := httpGet(ctx, u.String())
+	if err != nil {
+		return nil, err
+	}
 	p, listType, err := m3u8.DecodeFrom(bufio.NewReader(resp.Body), true)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if err := resp.Body.Close(); err != nil {
 		return nil, err
