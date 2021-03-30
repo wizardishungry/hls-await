@@ -60,10 +60,6 @@ func main() {
 		}
 	}()
 
-	// segmentChan := make(chan url.URL)
-	// go consumeSegments(segmentChan)
-	// defer close(segmentChan)
-
 	u, err := url.Parse(streamURL)
 	if err != nil {
 		panic(err)
@@ -81,7 +77,6 @@ LOOP:
 		select {
 		case s := <-killSignal:
 			if s == syscall.SIGINFO {
-				fmt.Println("siginfo")
 				oneShot <- struct{}{}
 				break
 			}
