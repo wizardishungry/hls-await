@@ -30,15 +30,14 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 	// Retrieve stream information
 	if pFormatContext.AvformatFindStreamInfo(nil) < 0 {
 		log.Println("Error: Couldn't find stream information.")
-
-		// Close input file and free context
-		pFormatContext.AvformatCloseInput()
 		return
 	}
 
 	// Dump information about file onto standard error
 	// pFormatContext.AvDumpFormat(0, "x.ts", 0)
-	pFormatContext.AvDumpFormat(0, file, 0)
+	if *flagVerboseDecoder {
+		pFormatContext.AvDumpFormat(0, file, 0)
+	}
 
 	// Find the first video stream
 	for i := 0; i < int(pFormatContext.NbStreams()); i++ {
@@ -47,39 +46,49 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 
 			// Get a pointer to the codec context for the video stream
 			pCodecCtxOrig := pFormatContext.Streams()[i].Codec()
+			defer (*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig)).AvcodecClose()
+
 			// Find the decoder for the video stream
 			pCodec := avcodec.AvcodecFindDecoder(avcodec.CodecId(pCodecCtxOrig.GetCodecId()))
 			if pCodec == nil {
 				fmt.Println("Unsupported codec!")
-				os.Exit(1)
+				return
 			}
 			// Copy context
 			pCodecCtx := pCodec.AvcodecAllocContext3()
+			defer pCodecCtx.AvcodecClose()
 			if pCodecCtx.AvcodecCopyContext((*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig))) != 0 {
 				fmt.Println("Couldn't copy codec context")
-				os.Exit(1)
+				return
 			}
 
 			// Open codec
 			if pCodecCtx.AvcodecOpen2(pCodec, nil) < 0 {
 				fmt.Println("Could not open codec")
-				os.Exit(1)
+				return
 			}
 
 			// Allocate video frame
 			pFrame := avutil.AvFrameAlloc()
+			if pFrame == nil {
+				fmt.Println("Unable to allocate Frame")
+				return
+			}
+			defer avutil.AvFrameFree(pFrame)
 
 			// Allocate an AVFrame structure
 			pFrameRGB := avutil.AvFrameAlloc()
 			if pFrameRGB == nil {
 				fmt.Println("Unable to allocate RGB Frame")
-				os.Exit(1)
+				return
 			}
+			defer avutil.AvFrameFree(pFrameRGB)
 
 			// Determine required buffer size and allocate buffer
 			numBytes := uintptr(avcodec.AvpictureGetSize(avcodec.AV_PIX_FMT_RGB24, pCodecCtx.Width(),
 				pCodecCtx.Height()))
 			buffer := avutil.AvMalloc(numBytes)
+			defer avutil.AvFree(buffer)
 
 			// Assign appropriate parts of buffer to image planes in pFrameRGB
 			// Note that pFrameRGB is an AVFrame, but AVFrame is a superset
@@ -100,10 +109,13 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 				nil,
 				nil,
 			)
+			defer swscale.SwsFreecontext(swsCtx)
 
 			// Read frames and save first five frames to disk
 			frameNumber := 1
 			packet := avcodec.AvPacketAlloc() // TODO sync.Pool
+			defer packet.AvFreePacket()
+
 			for pFormatContext.AvReadFrame(packet) >= 0 {
 				// Is this a packet from the video stream?
 				if packet.StreamIndex() == i {
@@ -132,7 +144,7 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
 							img, err := avutil.GetPicture(pFrame)
 							if err != nil {
-								fmt.Println("get pic", err)
+								fmt.Println("get pic error", err)
 							} else {
 								// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
 								// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
@@ -148,22 +160,7 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 						frameNumber++
 					}
 				}
-
-				// Free the packet that was allocated by av_read_frame
-				packet.AvFreePacket()
 			}
-			avutil.AvFree(buffer)
-			avutil.AvFrameFree(pFrameRGB)
-
-			// Free the YUV frame
-			avutil.AvFrameFree(pFrame)
-
-			// Close the codecs
-			pCodecCtx.AvcodecClose()
-			(*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig)).AvcodecClose()
-
-			// Close the video file
-			//pFormatContext.AvformatCloseInput() // TODO commented
 
 			// Stop after saving frames of first video straem
 			break
