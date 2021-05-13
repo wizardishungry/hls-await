@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/looplab/fsm"
+	"jonwillia.ms/iot/pkg/messages"
 )
 
 type FSM struct {
@@ -15,6 +16,7 @@ type FSM struct {
 //go:generate sh -c "go run ./... -dump-fsm | dot -s144 -Tsvg /dev/stdin -o fsm.svg"
 
 func NewFSM() FSM {
+	pub := NewPub()
 	f := FSM{
 		FSM: fsm.NewFSM(
 			"undefined",
@@ -40,6 +42,14 @@ func NewFSM() FSM {
 				"after_event": func(e *fsm.Event) {
 					if e.Src != e.Dst {
 						fmt.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
+						if e.Dst != "up" {
+							return
+						}
+						m := messages.Movie{State: e.Dst, URL: *flagURL}
+						err := messages.Publish(pub, m)
+						if err != nil {
+							fmt.Println("ugh", err)
+						}
 					}
 				},
 			},

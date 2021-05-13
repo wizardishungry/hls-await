@@ -21,10 +21,11 @@ var cleanup func() error
 var globalWG sync.WaitGroup
 
 var (
+	flagURL            = flag.String("url", streamURL, "url")
 	flagDumpHttp       = flag.Bool("dump-http", false, "dumps http headers")
 	flagVerboseDecoder = flag.Bool("verbose-decoder", false, "ffmpeg debuggging info")
 	flagAnsiArt        = flag.Int("ansi-art", 0, "output ansi art on modulo frame")
-	flagThreshold      = flag.Int("threshold", 1, "need this much to output a warning")
+	flagThreshold      = flag.Int("threshold", 4, "need this much to output a warning")
 	flagFlicker        = flag.Bool("flicker", false, "reset terminal in ansi mode")
 	flagFastStart      = flag.Int("fast-start", 1, "start by only processing this many recent segments")
 	flagFastResume     = flag.Bool("fast-resume", true, "if we see a bunch of new segments, behave like fast start")
@@ -61,13 +62,13 @@ func main() {
 		}
 	}()
 
-	u, err := url.Parse(streamURL)
+	u, err := url.Parse(*flagURL)
 	if err != nil {
 		panic(err)
 	}
 
 	killSignal := make(chan os.Signal, 0)
-	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGINFO, os.Interrupt, os.Kill)
+	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM /*syscall.SIGINFO,*/, os.Interrupt, os.Kill)
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	globalWG.Add(1)
@@ -77,10 +78,10 @@ LOOP:
 	for {
 		select {
 		case s := <-killSignal:
-			if s == syscall.SIGINFO {
-				oneShot <- struct{}{}
-				break
-			}
+			// if s == syscall.SIGINFO {
+			// 	oneShot <- struct{}{}
+			// 	break
+			// }
 			ctxCancel()
 			fmt.Println("exiting ", s)
 			break LOOP

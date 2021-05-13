@@ -25,7 +25,7 @@ func httpGet(ctx context.Context, url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Referer", "https://kcnawatch.org/korea-central-tv-livestream/")
+	req.Header.Set("Referer", "https://kcnawatch.org/korea-central-tv-livestream/") // TODO flag
 	req.Header.Set("Accept", "*/*")
 	// req.Header.Set("Cookie", " __qca=P0-44019880-1616793366216; _ga=GA1.2.978268718.1616793363; _gid=GA1.2.523786624.1616793363")
 	req.Header.Set("Accept-Language", "en-us")

@@ -27,6 +27,7 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		defer func() { *flagFastStart = 0 }()
 	}
 	segs := mediapl.Segments
+	segCount := 0
 	for i, seg := range segs {
 		if seg == nil {
 			continue
@@ -42,9 +43,11 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 			panic(err)
 		}
 		if _, ok := segmentMap[*tsURL]; ok || (*flagFastStart > 0 && *flagFastStart+i < count) {
+			// fmt.Println("skipping", *tsURL)
 			segmentMap[*tsURL] = struct{}{}
 			continue
 		}
+		segCount++
 		func() {
 			fmt.Println("getting", tsURL.String())
 			tsResp, err := httpGet(ctx, tsURL.String())
@@ -65,7 +68,11 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 				}
 			}()
 
+			c := make(chan struct{}, 0)
+			defer func() { <-c }()
+
 			go func() { // TODO use a worker pool?
+				defer close(c)
 				out, err := os.Create(path)
 				if err != nil {
 					fmt.Println("fifo os.Create", err)
@@ -81,10 +88,11 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 					// return
 				}
 			}()
+			fmt.Println("wait")
 			fmt.Println("frame ", path)
 			ProcessFrame(ctx, imageChan, path)
 			segmentMap[*tsURL] = struct{}{}
 		}()
 	}
-
+	fmt.Println("segs processed", segCount)
 }

@@ -6,6 +6,7 @@ import (
 	"image"
 	"log"
 	"os"
+	"time"
 	"unsafe"
 
 	"github.com/giorgisio/goav/avcodec"
@@ -129,8 +130,10 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 						if response == avutil.AvErrorEAGAIN || response == avutil.AvErrorEOF {
 							break
 						} else if response < 0 {
-							fmt.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
-							return
+							//fmt.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
+							// return
+							time.Sleep(time.Millisecond)
+							continue
 						}
 
 						if frameNumber <= 5000000000000000000 {
@@ -161,12 +164,12 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 					}
 				}
 			}
-
+			fmt.Println("got some frames", frameNumber)
 			// Stop after saving frames of first video straem
 			break
 
 		default:
-			fmt.Println("Didn't find a video stream")
+			//fmt.Println("Didn't find a video stream")
 
 		}
 	}
