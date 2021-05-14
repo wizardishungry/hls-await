@@ -25,7 +25,7 @@ var (
 	flagDumpHttp       = flag.Bool("dump-http", false, "dumps http headers")
 	flagVerboseDecoder = flag.Bool("verbose-decoder", false, "ffmpeg debuggging info")
 	flagAnsiArt        = flag.Int("ansi-art", 0, "output ansi art on modulo frame")
-	flagThreshold      = flag.Int("threshold", 4, "need this much to output a warning")
+	flagThreshold      = flag.Int("threshold", 2, "need this much to output a warning")
 	flagFlicker        = flag.Bool("flicker", false, "reset terminal in ansi mode")
 	flagFastStart      = flag.Int("fast-start", 1, "start by only processing this many recent segments")
 	flagFastResume     = flag.Bool("fast-resume", true, "if we see a bunch of new segments, behave like fast start")

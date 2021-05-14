@@ -11,7 +11,7 @@ import (
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 )
 
-const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
+const goimagehashDim = 16 // should be power of 2, color bars show noise at 16
 var (
 	firstHash          *goimagehash.ExtImageHash
 	firstHashAvg       *goimagehash.ImageHash
@@ -81,9 +81,9 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 					fmt.Println("consumeImages: ExtPerceptionHash Distance error", err)
 					return
 				}
+				// fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
 				if distance >= *flagThreshold {
 					firstHash = hash
-					fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance)
 					pushEvent("unsteady")
 				} else {
 					pushEvent("steady")
@@ -106,7 +106,7 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 				}
 				if distance >= *flagThreshold {
 					firstHashAvg = hash
-					fmt.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance)
+					// fmt.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
 				}
 			}(img)
 			globalFrameCounter++

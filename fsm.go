@@ -68,6 +68,8 @@ func NewFSM() FSM {
 						err = messages.Publish(pub, m)
 						if err != nil {
 							fmt.Println("messages.Publish", err)
+						} else {
+							fmt.Println("sending tv signal")
 						}
 					}
 				},
@@ -84,18 +86,10 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 	idleTimer := time.NewTicker(duration)
 	var f *fsm.FSM
 
-	cancelAll := func() {
-		if noDataTimer != nil {
-			noDataTimer.Stop()
-			noDataTimer = nil
-		}
-		if steadyTimer != nil {
-			steadyTimer.Stop()
-			steadyTimer = nil
-		}
-		if unsteadyTimer != nil {
-			unsteadyTimer.Stop()
-			unsteadyTimer = nil
+	cancelTimer := func(t *time.Timer) {
+		if t != nil {
+			t.Stop()
+			t = nil
 		}
 	}
 
@@ -108,26 +102,31 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 		},
 		fsm.Callbacks{
 			"enter_no_data": func(e *fsm.Event) {
-				cancelAll()
+				cancelTimer(steadyTimer)
+				cancelTimer(unsteadyTimer)
 				noDataTimer = time.AfterFunc(duration, func() {
 					target.Event("no_data_timer")
 				})
 			},
 			"enter_steady": func(e *fsm.Event) {
-				cancelAll()
+				cancelTimer(noDataTimer)
+				// do not cancel unsteady timer
 				steadyTimer = time.AfterFunc(duration, func() {
+					cancelTimer(unsteadyTimer)
 					target.Event("steady_timer")
 				})
 			},
 			"enter_unsteady": func(e *fsm.Event) {
-				cancelAll()
+				cancelTimer(steadyTimer)
+				cancelTimer(noDataTimer)
 				unsteadyTimer = time.AfterFunc(duration, func() {
+					cancelTimer(steadyTimer)
 					target.Event("unsteady_timer")
 				})
 			},
 			"after_event": func(e *fsm.Event) {
 				if e.Src != e.Dst {
-					fmt.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
+					// fmt.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to "verbose"
 				}
 				idleTimer.Reset(duration)
 
