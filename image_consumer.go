@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"sync"
 
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
@@ -15,6 +16,8 @@ var (
 	firstHash          *goimagehash.ExtImageHash
 	firstHashAvg       *goimagehash.ImageHash
 	globalFrameCounter int
+	singleImage        image.Image
+	singleImageMutex   sync.Mutex
 )
 
 func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struct{}) {
@@ -35,6 +38,11 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 			if img == nil {
 				return
 			}
+			go func(img image.Image) {
+				singleImageMutex.Lock()
+				defer singleImageMutex.Unlock()
+				singleImage = img
+			}(img)
 			func(img image.Image) {
 				if oneShot {
 					oneShot = false

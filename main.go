@@ -68,7 +68,7 @@ func main() {
 	}
 
 	killSignal := make(chan os.Signal, 0)
-	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM /*syscall.SIGINFO,*/, os.Interrupt, os.Kill)
+	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, os.Interrupt, os.Kill)
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	globalWG.Add(1)
@@ -78,10 +78,10 @@ LOOP:
 	for {
 		select {
 		case s := <-killSignal:
-			// if s == syscall.SIGINFO {
-			// 	oneShot <- struct{}{}
-			// 	break
-			// }
+			if s == syscall.SIGUSR1 {
+				oneShot <- struct{}{}
+				break
+			}
 			ctxCancel()
 			fmt.Println("exiting ", s)
 			break LOOP

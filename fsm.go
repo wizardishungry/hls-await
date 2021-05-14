@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/png"
 	"time"
 
 	"github.com/looplab/fsm"
@@ -45,10 +48,26 @@ func NewFSM() FSM {
 						if e.Dst != "up" {
 							return
 						}
-						m := messages.Movie{State: e.Dst, URL: *flagURL}
-						err := messages.Publish(pub, m)
+						img := func() image.Image {
+							singleImageMutex.Lock()
+							defer singleImageMutex.Unlock()
+							return singleImage
+						}()
+
+						f := &bytes.Buffer{}
+						err := png.Encode(f, img)
 						if err != nil {
-							fmt.Println("ugh", err)
+							fmt.Println("png.Encode", err)
+						}
+
+						m := messages.Movie{
+							State:           e.Dst,
+							URL:             *flagURL,
+							ImageAttachment: f.Bytes(),
+						}
+						err = messages.Publish(pub, m)
+						if err != nil {
+							fmt.Println("messages.Publish", err)
 						}
 					}
 				},

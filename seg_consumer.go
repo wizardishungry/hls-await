@@ -88,7 +88,6 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 					// return
 				}
 			}()
-			fmt.Println("wait")
 			fmt.Println("frame ", path)
 			ProcessFrame(ctx, imageChan, path)
 			segmentMap[*tsURL] = struct{}{}
