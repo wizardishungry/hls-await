@@ -2,11 +2,13 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"net/url"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/fifo"
+	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/sirupsen/logrus"
 	"jonwillia.ms/iot/pkg/errgroup" // TODO use other ddep
 )
@@ -28,7 +30,17 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 	}
 
 	s.fsm = s.newFSM()
-
+	target, err := s.url.Parse("/")
+	if err != nil {
+		return nil, err
+	}
+	u, err := proxy.NewSingleHostReverseProxy(context.TODO(), target)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = s.url.Path
+	fmt.Println(u.String())
+	s.url = *u
 	return s, nil
 }
 
