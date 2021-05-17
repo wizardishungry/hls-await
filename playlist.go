@@ -59,7 +59,10 @@ func processPlaylist(ctx context.Context, u *url.URL) error {
 					pollDuration = maxPollDuration
 				}
 			}
-			handleSegments(ctx, imageChan, u, mediapl)
+			err := handleSegments(ctx, imageChan, u, mediapl)
+			if err != nil {
+				log.Error("handleSegments", err)
+			}
 		}
 		elapsed := time.Now().Sub(start)
 		sleepFor := pollDuration - elapsed

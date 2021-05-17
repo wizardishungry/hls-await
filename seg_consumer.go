@@ -12,7 +12,7 @@ import (
 
 var segmentMap map[url.URL]struct{} = make(map[url.URL]struct{})
 
-func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL, mediapl *m3u8.MediaPlaylist) {
+func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL, mediapl *m3u8.MediaPlaylist) error {
 	count := 0
 	for _, seg := range mediapl.Segments {
 		if seg == nil {
@@ -33,7 +33,7 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		}
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		default:
 		}
 
@@ -93,4 +93,5 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		}()
 	}
 	log.Println("segs processed", segCount)
+	return nil
 }

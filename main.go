@@ -20,8 +20,6 @@ var log = logrus.New()
 var mk mkfifo
 var cleanup func() error
 
-var globalWG *errgroup.Group // TODO no globals
-
 var (
 	flagURL            = flag.String("url", streamURL, "url")
 	flagDumpHttp       = flag.Bool("dump-http", false, "dumps http headers")
@@ -56,21 +54,29 @@ func main() {
 		}
 	}()
 
-	u, err := url.Parse(*flagURL)
-	if err != nil {
-		log.Fatal(err)
+	args := flag.Args()
+	if len(args) == 0 {
+		args = []string{*flagURL}
 	}
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	// TODO need to readd SIGUSR1 support for one shot
 	defer ctxCancel()
-	globalWG, ctx = errgroup.WithContext(ctx)
+	g, ctx := errgroup.WithContext(ctx)
 
-	globalWG.Go(func() error {
-		return processPlaylist(ctx, u) // TODO support multiple urls
-	})
+	for _, arg := range args {
+		u, err := url.Parse(arg)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if err := globalWG.Wait(); err != nil {
+		g.Go(func() error {
+			return processPlaylist(ctx, u)
+		})
+
+	}
+
+	if err := g.Wait(); err != nil {
 		log.Error(err)
 	}
 }
