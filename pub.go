@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -38,7 +37,7 @@ func (t *rt) RoundTrip(r *http.Request) (*http.Response, error) {
 		if s, err := httputil.DumpRequest(r, false); err != nil {
 			panic(err)
 		} else {
-			fmt.Println(string(s))
+			log.Println(string(s))
 		}
 	}
 

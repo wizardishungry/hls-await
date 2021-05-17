@@ -37,7 +37,7 @@ func httpGet(ctx context.Context, url string) (*http.Response, error) {
 		if s, err := httputil.DumpRequest(req, false); err != nil {
 			panic(err)
 		} else {
-			fmt.Println(string(s))
+			log.Println(string(s))
 		}
 	}
 
@@ -53,7 +53,7 @@ func httpGet(ctx context.Context, url string) (*http.Response, error) {
 		if s, err := httputil.DumpResponse(resp, false); err != nil {
 			panic(err)
 		} else {
-			fmt.Println(string(s))
+			log.Println(string(s))
 		}
 	}
 	return resp, err

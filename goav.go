@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"log"
 	"os"
 	"time"
 	"unsafe"
@@ -52,27 +51,27 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 			// Find the decoder for the video stream
 			pCodec := avcodec.AvcodecFindDecoder(avcodec.CodecId(pCodecCtxOrig.GetCodecId()))
 			if pCodec == nil {
-				fmt.Println("Unsupported codec!")
+				log.Println("Unsupported codec!")
 				return
 			}
 			// Copy context
 			pCodecCtx := pCodec.AvcodecAllocContext3()
 			defer pCodecCtx.AvcodecClose()
 			if pCodecCtx.AvcodecCopyContext((*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig))) != 0 {
-				fmt.Println("Couldn't copy codec context")
+				log.Println("Couldn't copy codec context")
 				return
 			}
 
 			// Open codec
 			if pCodecCtx.AvcodecOpen2(pCodec, nil) < 0 {
-				fmt.Println("Could not open codec")
+				log.Println("Could not open codec")
 				return
 			}
 
 			// Allocate video frame
 			pFrame := avutil.AvFrameAlloc()
 			if pFrame == nil {
-				fmt.Println("Unable to allocate Frame")
+				log.Println("Unable to allocate Frame")
 				return
 			}
 			defer avutil.AvFrameFree(pFrame)
@@ -80,7 +79,7 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 			// Allocate an AVFrame structure
 			pFrameRGB := avutil.AvFrameAlloc()
 			if pFrameRGB == nil {
-				fmt.Println("Unable to allocate RGB Frame")
+				log.Println("Unable to allocate RGB Frame")
 				return
 			}
 			defer avutil.AvFrameFree(pFrameRGB)
@@ -123,14 +122,14 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 					// Decode video frame
 					response := pCodecCtx.AvcodecSendPacket(packet)
 					if response < 0 {
-						fmt.Printf("Error while sending a packet to the decoder: %s\n", avutil.ErrorFromCode(response))
+						log.Printf("Error while sending a packet to the decoder: %s\n", avutil.ErrorFromCode(response))
 					}
 					for response >= 0 {
 						response = pCodecCtx.AvcodecReceiveFrame((*avcodec.Frame)(unsafe.Pointer(pFrame)))
 						if response == avutil.AvErrorEAGAIN || response == avutil.AvErrorEOF {
 							break
 						} else if response < 0 {
-							//fmt.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
+							//log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
 							// return
 							time.Sleep(time.Millisecond)
 							continue
@@ -143,11 +142,11 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 								avutil.Data(pFrameRGB), avutil.Linesize(pFrameRGB))
 
 							// Save the frame to disk
-							// fmt.Printf("Writing frame %d\n", frameNumber)
+							// log.Printf("Writing frame %d\n", frameNumber)
 							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
 							img, err := avutil.GetPicture(pFrame)
 							if err != nil {
-								fmt.Println("get pic error", err)
+								log.Println("get pic error", err)
 							} else {
 								// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
 								// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
@@ -164,12 +163,12 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 					}
 				}
 			}
-			fmt.Println("got some frames", frameNumber)
+			log.Println("got some frames", frameNumber)
 			// Stop after saving frames of first video straem
 			break
 
 		default:
-			//fmt.Println("Didn't find a video stream")
+			//log.Println("Didn't find a video stream")
 
 		}
 	}

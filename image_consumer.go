@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 	"os"
@@ -23,7 +22,6 @@ var (
 )
 
 func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struct{}) {
-	defer globalWG.Done()
 
 	oneShot := false
 
@@ -34,7 +32,7 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 		case <-cAnsi:
 			if *flagOneShot {
 				oneShot = true
-				fmt.Println("photo time!")
+				log.Println("photo time!")
 			}
 		case img := <-c:
 			if img == nil {
@@ -61,7 +59,7 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 				var err error
 				if *flagSixel {
 					if *flagFlicker {
-						fmt.Print("\033[H\033[2J") // flicker
+						log.Print("\033[H\033[2J") // flicker
 					}
 					err = sixel.NewEncoder(os.Stdout).Encode(img)
 				} else {
@@ -70,19 +68,19 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 					ansi, err = ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
 					if err == nil {
 						if *flagFlicker {
-							fmt.Print("\033[H\033[2J") // flicker
+							log.Print("\033[H\033[2J") // flicker
 						}
 						ansi.Draw()
 					}
 				}
 				if err != nil {
-					fmt.Println("ansi render err", err)
+					log.Println("ansi render err", err)
 				}
 			}(img)
 			func(img image.Image) {
 				hash, err := goimagehash.ExtPerceptionHash(img, goimagehashDim, goimagehashDim)
 				if err != nil {
-					fmt.Println("consumeImages: ExtPerceptionHash error", err)
+					log.Println("consumeImages: ExtPerceptionHash error", err)
 					return
 				}
 				if firstHash == nil {
@@ -91,10 +89,10 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 				}
 				distance, err := firstHash.Distance(hash)
 				if err != nil {
-					fmt.Println("consumeImages: ExtPerceptionHash Distance error", err)
+					log.Println("consumeImages: ExtPerceptionHash Distance error", err)
 					return
 				}
-				// fmt.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
+				// log.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
 				if distance >= *flagThreshold {
 					firstHash = hash
 					pushEvent("unsteady")
@@ -105,7 +103,7 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 			func(img image.Image) {
 				hash, err := goimagehash.AverageHash(img)
 				if err != nil {
-					fmt.Println("consumeImages: AverageHash error", err)
+					log.Println("consumeImages: AverageHash error", err)
 					return
 				}
 				if firstHashAvg == nil {
@@ -114,12 +112,12 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 				}
 				distance, err := firstHashAvg.Distance(hash)
 				if err != nil {
-					fmt.Println("consumeImages: AverageHash Distance error", err)
+					log.Println("consumeImages: AverageHash Distance error", err)
 					return
 				}
 				if distance >= *flagThreshold {
 					firstHashAvg = hash
-					// fmt.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
+					// log.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
 				}
 			}(img)
 			globalFrameCounter++

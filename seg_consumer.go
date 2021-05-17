@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"io"
 	"net/url"
@@ -21,8 +20,8 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		}
 		count++
 	}
-	fmt.Println("media segment count is", count)
-	fmt.Println("fast start count is", *flagFastStart)
+	log.Println("media segment count is", count)
+	log.Println("fast start count is", *flagFastStart)
 	if !*flagFastResume {
 		defer func() { *flagFastStart = 0 }()
 	}
@@ -43,28 +42,28 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 			panic(err)
 		}
 		if _, ok := segmentMap[*tsURL]; ok || (*flagFastStart > 0 && *flagFastStart+i < count) {
-			// fmt.Println("skipping", *tsURL)
+			// log.Println("skipping", *tsURL)
 			segmentMap[*tsURL] = struct{}{}
 			continue
 		}
 		segCount++
 		func() {
-			fmt.Println("getting", tsURL.String())
+			log.Println("getting", tsURL.String())
 			tsResp, err := httpGet(ctx, tsURL.String())
 			if err != nil {
-				fmt.Println("httpGet", err)
+				log.Println("httpGet", err)
 				return
 			}
 			defer tsResp.Body.Close()
 
 			path, cleanup, err := mk()
 			if err != nil {
-				fmt.Println("mkfifo", err)
+				log.Println("mkfifo", err)
 				return
 			}
 			defer func() {
 				if err := cleanup(); err != nil {
-					fmt.Println("mkfifo cleanup", err)
+					log.Println("mkfifo cleanup", err)
 				}
 			}()
 
@@ -75,23 +74,23 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 				defer close(c)
 				out, err := os.Create(path)
 				if err != nil {
-					fmt.Println("fifo os.Create", err)
+					log.Println("fifo os.Create", err)
 					return
 				}
 				defer func() {
 					if err := out.Close(); err != nil {
-						fmt.Println("fifo os.Close", err)
+						log.Println("fifo os.Close", err)
 					}
 				}()
 				if i, err := io.Copy(out, tsResp.Body); err != nil {
-					fmt.Println("fifo io.Copy", i, err)
+					log.Println("fifo io.Copy", i, err)
 					// return
 				}
 			}()
-			fmt.Println("frame ", path)
+			log.Println("frame ", path)
 			ProcessFrame(ctx, imageChan, path)
 			segmentMap[*tsURL] = struct{}{}
 		}()
 	}
-	fmt.Println("segs processed", segCount)
+	log.Println("segs processed", segCount)
 }

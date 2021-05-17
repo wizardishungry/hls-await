@@ -3,22 +3,24 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/looplab/fsm"
+	"github.com/sirupsen/logrus"
+	"jonwillia.ms/iot/pkg/errgroup"
 )
 
 const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
 
+var log = logrus.New()
+
 var mk mkfifo
 var cleanup func() error
 
-var globalWG sync.WaitGroup
+var globalWG *errgroup.Group // TODO no globals
 
 var (
 	flagURL            = flag.String("url", streamURL, "url")
@@ -34,60 +36,41 @@ var (
 	flagSixel          = flag.Bool("sixel", false, "output ansi images as sixels")
 )
 
-var myFSM = NewFSM()
-
-func pushEvent(s string) {
-	err := myFSM.Target.Event(s)
-	if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
-		fmt.Println("push event error", s, err, myFSM.Target.Current())
-	}
-}
-
 func main() {
 	flag.Parse()
 
 	if *flagDumpFSM {
-		fmt.Println(fsm.Visualize(myFSM.FSM))
-		os.Exit(0)
+		log.Println(fsm.Visualize(myFSM.FSM))
+		return
 	}
 
 	var err error
 	mk, cleanup, err = MkFIFOFactory()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer func() {
 		err := cleanup()
 		if err != nil {
-			fmt.Println("MkFIFOFactory()cleanup()", err)
+			log.Fatal("MkFIFOFactory()cleanup()", err)
 		}
 	}()
 
 	u, err := url.Parse(*flagURL)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	killSignal := make(chan os.Signal, 0)
-	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, os.Interrupt, os.Kill)
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	// TODO need to readd SIGUSR1 support for one shot
+	defer ctxCancel()
+	globalWG, ctx = errgroup.WithContext(ctx)
 
-	globalWG.Add(1)
-	go processPlaylist(ctx, u)
+	globalWG.Go(func() error {
+		return processPlaylist(ctx, u) // TODO support multiple urls
+	})
 
-LOOP:
-	for {
-		select {
-		case s := <-killSignal:
-			if s == syscall.SIGUSR1 {
-				oneShot <- struct{}{}
-				break
-			}
-			ctxCancel()
-			fmt.Println("exiting ", s)
-			break LOOP
-		}
+	if err := globalWG.Wait(); err != nil {
+		log.Error(err)
 	}
-
-	globalWG.Wait()
 }

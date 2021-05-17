@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/png"
 	"time"
@@ -14,6 +13,15 @@ import (
 type FSM struct {
 	Clock       func() time.Time
 	FSM, Target *fsm.FSM
+}
+
+var myFSM = NewFSM()
+
+func pushEvent(s string) {
+	err := myFSM.Target.Event(s)
+	if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
+		log.Println("push event error", s, err, myFSM.Target.Current())
+	}
 }
 
 //go:generate sh -c "go run ./... -dump-fsm | dot -s144 -Tsvg /dev/stdin -o fsm.svg"
@@ -44,7 +52,7 @@ func NewFSM() FSM {
 				},
 				"after_event": func(e *fsm.Event) {
 					if e.Src != e.Dst {
-						fmt.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
+						log.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
 						if e.Dst != "up" {
 							return
 						}
@@ -57,7 +65,7 @@ func NewFSM() FSM {
 						f := &bytes.Buffer{}
 						err := png.Encode(f, img)
 						if err != nil {
-							fmt.Println("png.Encode", err)
+							log.Println("png.Encode", err)
 						}
 
 						m := messages.Movie{
@@ -67,9 +75,9 @@ func NewFSM() FSM {
 						}
 						err = messages.Publish(pub, m)
 						if err != nil {
-							fmt.Println("messages.Publish", err)
+							log.Println("messages.Publish", err)
 						} else {
-							fmt.Println("sending tv signal")
+							log.Println("sending tv signal")
 						}
 					}
 				},
@@ -126,13 +134,13 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 			},
 			"after_event": func(e *fsm.Event) {
 				if e.Src != e.Dst {
-					// fmt.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to "verbose"
+					// log.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to "verbose"
 				}
 				idleTimer.Reset(duration)
 
 				err := target.Event(e.Dst)
 				if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
-					fmt.Println("problem with clock event", e, err)
+					log.Println("problem with clock event", e, err)
 				}
 			},
 		},

@@ -36,11 +36,9 @@ func doPlaylist(ctx context.Context, u *url.URL) (*m3u8.MediaPlaylist, error) {
 
 var oneShot = make(chan struct{}, 1)
 
-func processPlaylist(ctx context.Context, u *url.URL) {
-	defer globalWG.Done()
+func processPlaylist(ctx context.Context, u *url.URL) error {
 	imageChan := make(chan image.Image)
 
-	globalWG.Add(1)
 	go consumeImages(ctx, imageChan, oneShot)
 	defer close(imageChan)
 
@@ -49,7 +47,7 @@ func processPlaylist(ctx context.Context, u *url.URL) {
 		start := time.Now()
 		mediapl, err := doPlaylist(ctx, u)
 		if err != nil {
-			fmt.Println("processPlaylist", err)
+			log.Println("processPlaylist", err)
 			pollDuration = minPollDuration
 		} else {
 			if dur := mediapl.TargetDuration; dur > 0 {
@@ -69,12 +67,12 @@ func processPlaylist(ctx context.Context, u *url.URL) {
 			sleepFor = minPollDuration
 		}
 		timer := time.NewTimer(pollDuration)
-		fmt.Println("processPlaylist elapsed time", elapsed)
-		fmt.Println("processPlaylist pollDuration", pollDuration)
-		fmt.Println("processPlaylist sleeping for", sleepFor)
+		log.Println("processPlaylist elapsed time", elapsed)
+		log.Println("processPlaylist pollDuration", pollDuration)
+		log.Println("processPlaylist sleeping for", sleepFor)
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case <-timer.C:
 		}
 	}
