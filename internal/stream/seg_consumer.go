@@ -91,7 +91,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 				}
 			}()
 			log.Println("frame ", path)
-			s.ProcessFrame(ctx, path)
+			s.ProcessSegment(ctx, path)
 			s.segmentMap[*tsURL] = struct{}{}
 		}()
 	}

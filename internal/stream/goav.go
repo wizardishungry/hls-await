@@ -2,8 +2,6 @@ package stream
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 	"unsafe"
 
@@ -17,7 +15,7 @@ func init() {
 	avformat.AvRegisterAll()
 }
 
-func (s *Stream) ProcessFrame(ctx context.Context, file string) {
+func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 	pFormatContext := avformat.AvformatAllocContext()
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if avformat.AvformatOpenInput(&pFormatContext, file, nil, nil) != 0 {
@@ -130,7 +128,7 @@ func (s *Stream) ProcessFrame(ctx context.Context, file string) {
 						} else if response < 0 {
 							//log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
 							// return
-							time.Sleep(time.Millisecond)
+							time.Sleep(time.Millisecond) // only seen as helpful on linux
 							continue
 						}
 
@@ -155,8 +153,6 @@ func (s *Stream) ProcessFrame(ctx context.Context, file string) {
 								case s.imageChan <- img:
 								}
 							}
-						} else {
-							//goto DONE
 						}
 						frameNumber++
 					}
@@ -170,32 +166,5 @@ func (s *Stream) ProcessFrame(ctx context.Context, file string) {
 			//log.Println("Didn't find a video stream")
 
 		}
-	}
-}
-
-// SaveFrame writes a single frame to disk as a PPM file
-func SaveFrame(frame *avutil.Frame, width, height, frameNumber int) {
-	// Open file
-	fileName := fmt.Sprintf("frame%d.ppm", frameNumber)
-	file, err := os.Create(fileName)
-	if err != nil {
-		log.Println("Error Reading")
-	}
-	defer file.Close()
-
-	// Write header
-	header := fmt.Sprintf("P6\n%d %d\n255\n", width, height)
-	file.Write([]byte(header))
-
-	// Write pixel data
-	for y := 0; y < height; y++ {
-		data0 := avutil.Data(frame)[0]
-		buf := make([]byte, width*3)
-		startPos := uintptr(unsafe.Pointer(data0)) + uintptr(y)*uintptr(avutil.Linesize(frame)[0])
-		for i := 0; i < width*3; i++ {
-			element := *(*uint8)(unsafe.Pointer(startPos + uintptr(i)))
-			buf[i] = element
-		}
-		file.Write(buf)
 	}
 }
