@@ -64,7 +64,12 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			}()
 
 			c := make(chan struct{}, 0)
-			defer func() { <-c }()
+			defer func() {
+				select {
+				case <-ctx.Done():
+				case <-c:
+				}
+			}()
 
 			go func() { // TODO use a worker pool?
 				defer close(c)
