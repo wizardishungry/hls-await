@@ -11,6 +11,9 @@ require (
 	github.com/grafov/m3u8 v0.11.1
 	github.com/looplab/fsm v0.2.0
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/mattn/go-sixel v0.0.1 // indirect
+	github.com/soniakeys/quant v1.0.0 // indirect
+	github.com/stefanwichmann/go.hue v0.0.0-20191102085005-2bc19682969e // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/image v0.0.0-20210504121937-7319ad40d33e // indirect
 	jonwillia.ms/iot v0.0.0-00010101000000-000000000000

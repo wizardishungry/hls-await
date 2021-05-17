@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"os"
 	"sync"
 
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
+	"github.com/mattn/go-sixel"
 )
 
 const goimagehashDim = 16 // should be power of 2, color bars show noise at 16
@@ -56,14 +58,25 @@ func consumeImages(ctx context.Context, c <-chan image.Image, cAnsi <-chan struc
 					return
 				}
 			CLICK:
-				ansi, err := ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
-				if err != nil {
-					fmt.Println(err)
-				} else {
+				var err error
+				if *flagSixel {
 					if *flagFlicker {
 						fmt.Print("\033[H\033[2J") // flicker
 					}
-					ansi.Draw()
+					err = sixel.NewEncoder(os.Stdout).Encode(img)
+				} else {
+					var ansi *ansimage.ANSImage
+
+					ansi, err = ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
+					if err == nil {
+						if *flagFlicker {
+							fmt.Print("\033[H\033[2J") // flicker
+						}
+						ansi.Draw()
+					}
+				}
+				if err != nil {
+					fmt.Println("ansi render err", err)
 				}
 			}(img)
 			func(img image.Image) {

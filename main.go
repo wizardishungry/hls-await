@@ -30,7 +30,8 @@ var (
 	flagFastStart      = flag.Int("fast-start", 1, "start by only processing this many recent segments")
 	flagFastResume     = flag.Bool("fast-resume", true, "if we see a bunch of new segments, behave like fast start")
 	flagDumpFSM        = flag.Bool("dump-fsm", false, "write graphviz src and exit")
-	flagOneShot        = flag.Bool("one-shot", true, "render an ascii frame when entering up state")
+	flagOneShot        = flag.Bool("one-shot", true, "render an ansi frame when entering up state")
+	flagSixel          = flag.Bool("sixel", false, "output ansi images as sixels")
 )
 
 var myFSM = NewFSM()
