@@ -18,7 +18,7 @@ type flags struct {
 
 func WithFlags() StreamOption {
 	return func(s *Stream) error {
-		s.flags = getFlags()
+		s.flags = someFlags
 		return nil
 	}
 }
@@ -37,3 +37,5 @@ func getFlags() flags {
 	flag.BoolVar(&f.Sixel, "sixel", false, "output ansi images as sixels")
 	return f
 }
+
+var someFlags = getFlags()

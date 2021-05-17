@@ -43,17 +43,20 @@ type Stream struct {
 	// StreamOptions
 	url url.URL
 	// newStream
-	oneShot   chan struct{}
-	imageChan chan image.Image
-	flags     flags
+	oneShot    chan struct{}
+	imageChan  chan image.Image
+	flags      flags
+	segmentMap map[url.URL]struct{}
+
 	// NewStream
 	fsm FSM
 }
 
 func newStream() *Stream {
 	return &Stream{
-		oneShot:   make(chan struct{}, 1),
-		imageChan: make(chan image.Image),
+		oneShot:    make(chan struct{}, 1),
+		imageChan:  make(chan image.Image),
+		segmentMap: make(map[url.URL]struct{}),
 	}
 }
 func (s *Stream) close() error { // TODO once

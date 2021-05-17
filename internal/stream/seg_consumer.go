@@ -3,13 +3,10 @@ package stream
 import (
 	"context"
 	"io"
-	"net/url"
 	"os"
 
 	"github.com/grafov/m3u8"
 )
-
-var segmentMap map[url.URL]struct{} = make(map[url.URL]struct{}) // TODO move to struct
 
 func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
 	count := 0
@@ -40,9 +37,9 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 		if err != nil {
 			return err
 		}
-		if _, ok := segmentMap[*tsURL]; ok || (s.flags.FastStart > 0 && s.flags.FastStart+i < count) {
+		if _, ok := s.segmentMap[*tsURL]; ok || (s.flags.FastStart > 0 && s.flags.FastStart+i < count) {
 			// log.Println("skipping", *tsURL)
-			segmentMap[*tsURL] = struct{}{}
+			s.segmentMap[*tsURL] = struct{}{}
 			continue
 		}
 		segCount++
@@ -76,6 +73,8 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 					log.Println("fifo os.Create", err)
 					return
 				}
+				defer out.Close()
+
 				defer func() {
 					if err := out.Close(); err != nil {
 						log.Println("fifo os.Close", err)
@@ -88,7 +87,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			}()
 			log.Println("frame ", path)
 			s.ProcessFrame(ctx, path)
-			segmentMap[*tsURL] = struct{}{}
+			s.segmentMap[*tsURL] = struct{}{}
 		}()
 	}
 	log.Println("segs processed", segCount)
