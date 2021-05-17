@@ -70,6 +70,7 @@ func main() {
 			log.Fatal(err)
 		}
 
+		log.Infof("monitoring %+v", u)
 		g.Go(func() error {
 			return processPlaylist(ctx, u)
 		})
