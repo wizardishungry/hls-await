@@ -39,7 +39,7 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 
 		tsURL, err := u.Parse(seg.URI)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		if _, ok := segmentMap[*tsURL]; ok || (*flagFastStart > 0 && *flagFastStart+i < count) {
 			// log.Println("skipping", *tsURL)
