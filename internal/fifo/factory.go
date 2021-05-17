@@ -1,4 +1,4 @@
-package main
+package fifo
 
 import (
 	"io/ioutil"
@@ -9,9 +9,9 @@ import (
 	"syscall"
 )
 
-type mkfifo func() (string, func() error, error)
+type Mkfifo func() (string, func() error, error)
 
-func MkFIFOFactory() (mkfifo, func() error, error) {
+func Factory() (Mkfifo, func() error, error) {
 	dir, err := ioutil.TempDir(os.TempDir(), "hls-await-")
 	if err != nil {
 		return nil, nil, err

@@ -1,4 +1,4 @@
-package main
+package stream
 
 import (
 	"net/http"
@@ -33,7 +33,7 @@ func (t *rt) RoundTrip(r *http.Request) (*http.Response, error) {
 	hostURL.Path = "/" + r.URL.Path
 	r.URL = hostURL
 
-	if *flagDumpHttp {
+	if /* *flagDumpHttp */ false { // TODO inject option
 		if s, err := httputil.DumpRequest(r, false); err != nil {
 			panic(err)
 		} else {

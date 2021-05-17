@@ -1,4 +1,4 @@
-package main
+package stream
 
 import (
 	"bytes"
@@ -15,18 +15,19 @@ type FSM struct {
 	FSM, Target *fsm.FSM
 }
 
-var myFSM = NewFSM()
-
-func pushEvent(s string) {
-	err := myFSM.Target.Event(s)
+func (s *Stream) pushEvent(str string) {
+	err := s.fsm.Target.Event(str)
 	if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
-		log.Println("push event error", s, err, myFSM.Target.Current())
+		log.Println("push event error", s, err, s.fsm.Target.Current())
 	}
 }
 
 //go:generate sh -c "go run ./... -dump-fsm | dot -s144 -Tsvg /dev/stdin -o fsm.svg"
+func (s *Stream) GetFSM() *fsm.FSM {
+	return s.fsm.FSM
+}
 
-func NewFSM() FSM {
+func (s *Stream) newFSM() FSM {
 	pub := NewPub()
 	f := FSM{
 		FSM: fsm.NewFSM(
@@ -48,7 +49,7 @@ func NewFSM() FSM {
 			},
 			fsm.Callbacks{
 				"enter_up": func(e *fsm.Event) {
-					oneShot <- struct{}{}
+					s.oneShot <- struct{}{}
 				},
 				"after_event": func(e *fsm.Event) {
 					if e.Src != e.Dst {
@@ -70,7 +71,7 @@ func NewFSM() FSM {
 
 						m := messages.Movie{
 							State:           e.Dst,
-							URL:             *flagURL,
+							URL:             s.url.String(),
 							ImageAttachment: f.Bytes(),
 						}
 						err = messages.Publish(pub, m)

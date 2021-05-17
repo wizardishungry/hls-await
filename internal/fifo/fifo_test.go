@@ -1,4 +1,4 @@
-package main
+package fifo
 
 import (
 	"io/ioutil"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestFifo(t *testing.T) {
-	mk, cleanup, err := MkFIFOFactory()
+	mk, cleanup, err := Factory()
 	require.NoError(t, err)
 	defer func() {
 		err := cleanup()

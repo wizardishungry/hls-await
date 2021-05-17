@@ -1,9 +1,8 @@
-package main
+package stream
 
 import (
 	"context"
 	"fmt"
-	"image"
 	"os"
 	"time"
 	"unsafe"
@@ -18,7 +17,7 @@ func init() {
 	avformat.AvRegisterAll()
 }
 
-func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) {
+func (s *Stream) ProcessFrame(ctx context.Context, file string) {
 	pFormatContext := avformat.AvformatAllocContext()
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if avformat.AvformatOpenInput(&pFormatContext, file, nil, nil) != 0 {
@@ -35,7 +34,7 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 
 	// Dump information about file onto standard error
 	// pFormatContext.AvDumpFormat(0, "x.ts", 0)
-	if *flagVerboseDecoder {
+	if s.flags.VerboseDecoder {
 		pFormatContext.AvDumpFormat(0, file, 0)
 	}
 
@@ -153,7 +152,7 @@ func ProcessFrame(ctx context.Context, imageChan chan image.Image, file string) 
 								select {
 								case <-ctx.Done():
 									return
-								case imageChan <- img:
+								case s.imageChan <- img:
 								}
 							}
 						} else {

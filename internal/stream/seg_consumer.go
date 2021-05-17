@@ -1,8 +1,7 @@
-package main
+package stream
 
 import (
 	"context"
-	"image"
 	"io"
 	"net/url"
 	"os"
@@ -10,9 +9,9 @@ import (
 	"github.com/grafov/m3u8"
 )
 
-var segmentMap map[url.URL]struct{} = make(map[url.URL]struct{})
+var segmentMap map[url.URL]struct{} = make(map[url.URL]struct{}) // TODO move to struct
 
-func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL, mediapl *m3u8.MediaPlaylist) error {
+func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
 	count := 0
 	for _, seg := range mediapl.Segments {
 		if seg == nil {
@@ -21,9 +20,9 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		count++
 	}
 	log.Println("media segment count is", count)
-	log.Println("fast start count is", *flagFastStart)
-	if !*flagFastResume {
-		defer func() { *flagFastStart = 0 }()
+	log.Println("fast start count is", s.flags.FastStart)
+	if !s.flags.FastResume {
+		defer func() { s.flags.FastStart = 0 }()
 	}
 	segs := mediapl.Segments
 	segCount := 0
@@ -37,11 +36,11 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 		default:
 		}
 
-		tsURL, err := u.Parse(seg.URI)
+		tsURL, err := s.url.Parse(seg.URI)
 		if err != nil {
 			return err
 		}
-		if _, ok := segmentMap[*tsURL]; ok || (*flagFastStart > 0 && *flagFastStart+i < count) {
+		if _, ok := segmentMap[*tsURL]; ok || (s.flags.FastStart > 0 && s.flags.FastStart+i < count) {
 			// log.Println("skipping", *tsURL)
 			segmentMap[*tsURL] = struct{}{}
 			continue
@@ -88,7 +87,7 @@ func handleSegments(ctx context.Context, imageChan chan image.Image, u *url.URL,
 				}
 			}()
 			log.Println("frame ", path)
-			ProcessFrame(ctx, imageChan, path)
+			s.ProcessFrame(ctx, path)
 			segmentMap[*tsURL] = struct{}{}
 		}()
 	}
