@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"net/url"
 	"time"
@@ -39,8 +38,8 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 		return nil, err
 	}
 	u.Path = s.url.Path
-	fmt.Println(u.String())
 	s.url = *u
+
 	return s, nil
 }
 

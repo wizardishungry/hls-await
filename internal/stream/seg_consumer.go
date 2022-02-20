@@ -38,7 +38,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			return err
 		}
 		if _, ok := s.segmentMap[*tsURL]; ok || (s.flags.FastStart > 0 && s.flags.FastStart+i < count) {
-			// log.Println("skipping", *tsURL)
+			// log.Println("skipping", *tsURL) // TODO use log level
 			s.segmentMap[*tsURL] = struct{}{}
 			continue
 		}

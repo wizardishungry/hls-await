@@ -3,8 +3,6 @@ module github.com/WIZARDISHUNGRY/hls-await
 go 1.16
 
 require (
-	github.com/ThreeDotsLabs/watermill v1.1.1
-	github.com/ThreeDotsLabs/watermill-http v1.1.3
 	github.com/charlestamz/goav v1.5.4
 	github.com/corona10/goimagehash v1.0.3
 	github.com/die-net/lrucache v0.0.0-20190707192454-883874fe3947
@@ -15,6 +13,7 @@ require (
 	github.com/looplab/fsm v0.2.0
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-sixel v0.0.1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/soniakeys/quant v1.0.0 // indirect
 	github.com/stretchr/testify v1.7.0
