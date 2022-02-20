@@ -14,6 +14,7 @@ type flags struct {
 	DumpFSM        bool
 	OneShot        bool
 	Sixel          bool
+	Worker         bool // used for running the CGO stuff in a dedicated routine
 }
 
 func WithFlags() StreamOption {
@@ -23,10 +24,10 @@ func WithFlags() StreamOption {
 	}
 }
 
-func getFlags() flags {
+func getFlags() *flags {
 	f := flags{}
 	flag.BoolVar(&f.DumpHttp, "dump-http", false, "dumps http headers")
-	flag.BoolVar(&f.VerboseDecoder, "verbose-decoder", false, "ffmpeg debuggging info")
+	flag.BoolVar(&f.VerboseDecoder, "verbose", false, "ffmpeg debuggging info")
 	flag.IntVar(&f.AnsiArt, "ansi-art", 0, "output ansi art on modulo frame")
 	flag.IntVar(&f.Threshold, "threshold", 2, "need this much to output a warning")
 	flag.BoolVar(&f.Flicker, "flicker", false, "reset terminal in ansi mode")
@@ -35,7 +36,7 @@ func getFlags() flags {
 	flag.BoolVar(&f.DumpFSM, "dump-fsm", false, "write graphviz src and exit")
 	flag.BoolVar(&f.OneShot, "one-shot", true, "render an ansi frame when entering up state")
 	flag.BoolVar(&f.Sixel, "sixel", false, "output ansi images as sixels")
-	return f
+	return &f
 }
 
 var someFlags = getFlags()

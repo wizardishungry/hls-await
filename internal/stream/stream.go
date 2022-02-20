@@ -10,7 +10,7 @@ import (
 	"github.com/WIZARDISHUNGRY/hls-await/internal/fifo"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/sirupsen/logrus"
-	"jonwillia.ms/iot/pkg/errgroup" // TODO use other ddep
+	"golang.org/x/sync/errgroup"
 )
 
 var mk fifo.Mkfifo
@@ -57,11 +57,13 @@ type Stream struct {
 	// newStream
 	oneShot    chan struct{}
 	imageChan  chan image.Image
-	flags      flags
+	flags      *flags
 	segmentMap map[url.URL]struct{}
 
 	// NewStream
 	fsm FSM
+
+	worker *Worker
 }
 
 func newStream() *Stream {
@@ -79,8 +81,19 @@ func (s *Stream) close() error { // TODO once
 
 func (s *Stream) Run(ctx context.Context) error {
 
+	// if s.worker != nil {
+	// 	if s.flags.Worker {
+	// 		return s.worker.runWorker(ctx)
+	// 	} else {
+	// 		err := s.worker.startChild(ctx)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
+
 	var err error
-	mk, cleanup, err = fifo.Factory()
+	mk, cleanup, err = fifo.Factory() // TODO: stop using FIFOS
 	if err != nil {
 		log.Fatal(err)
 	}

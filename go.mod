@@ -5,7 +5,9 @@ go 1.16
 require (
 	github.com/ThreeDotsLabs/watermill v1.1.1
 	github.com/ThreeDotsLabs/watermill-http v1.1.3
+	github.com/charlestamz/goav v1.5.4 // indirect
 	github.com/corona10/goimagehash v1.0.3
+	github.com/czhaof/goav-ex v1.0.7 // indirect
 	github.com/die-net/lrucache v0.0.0-20190707192454-883874fe3947 // indirect
 	github.com/eliukblau/pixterm v1.3.1
 	github.com/giorgisio/goav v0.1.0
@@ -24,3 +26,5 @@ require (
 )
 
 replace jonwillia.ms/iot => ../iot
+
+// replace github.com/giorgisio/goav v0.1.0 => github.com/czhaof/goav-ex v1.0.7

@@ -10,7 +10,7 @@ import (
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/stream"
 	"github.com/sirupsen/logrus"
-	"jonwillia.ms/iot/pkg/errgroup"
+	"golang.org/x/sync/errgroup"
 )
 
 const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
@@ -34,6 +34,8 @@ func main() {
 		args = []string{streamURL}
 	}
 
+	worker := &stream.Worker{} // TODO: allow in process workers
+
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	// TODO need to readd SIGUSR1 support for one shot
 	defer ctxCancel()
@@ -48,7 +50,11 @@ func main() {
 		s, err := stream.NewStream(
 			stream.WithFlags(),
 			stream.WithURL(*u),
+			stream.WithWorker(worker),
 		)
+		if err != nil {
+			log.WithError(err).Fatal("stream.NewStream")
+		}
 		log.Infof("monitoring %+v", u)
 
 		g.Go(func() error {

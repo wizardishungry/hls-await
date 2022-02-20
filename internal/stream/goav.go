@@ -2,28 +2,33 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"unsafe"
 
-	"github.com/giorgisio/goav/avcodec"
-	"github.com/giorgisio/goav/avformat"
-	"github.com/giorgisio/goav/avutil"
-	"github.com/giorgisio/goav/swscale"
+	"github.com/charlestamz/goav/avcodec"
+	"github.com/charlestamz/goav/avformat"
+	"github.com/charlestamz/goav/avutil"
+	"github.com/charlestamz/goav/swscale"
 )
 
 func init() {
-	avformat.AvRegisterAll()
+	// avformat.AvRegisterAll()
+	avcodec.AvcodecRegisterAll()
+
 }
 
 func (s *Stream) ProcessSegment(ctx context.Context, file string) {
+	defer fmt.Println("ProcessSegment")
+	fmt.Println("start ProcessSegment")
+
 	pFormatContext := avformat.AvformatAllocContext()
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if avformat.AvformatOpenInput(&pFormatContext, file, nil, nil) != 0 {
 		log.Println("Error: Couldn't open file.")
 		return
 	}
-	defer pFormatContext.AvformatCloseInput()
-
+	defer avformat.AvformatCloseInput(pFormatContext)
 	// Retrieve stream information
 	if pFormatContext.AvformatFindStreamInfo(nil) < 0 {
 		log.Println("Error: Couldn't find stream information.")
@@ -31,19 +36,19 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 	}
 
 	// Dump information about file onto standard error
-	// pFormatContext.AvDumpFormat(0, "x.ts", 0)
 	if s.flags.VerboseDecoder {
 		pFormatContext.AvDumpFormat(0, file, 0)
 	}
 
 	// Find the first video stream
+FRAME_LOOP:
 	for i := 0; i < int(pFormatContext.NbStreams()); i++ {
-		switch pFormatContext.Streams()[i].CodecParameters().AvCodecGetType() {
-		case avformat.AVMEDIA_TYPE_VIDEO:
+		switch pFormatContext.Streams()[i].CodecParameters().CodecType() {
+		case avcodec.AVMEDIA_TYPE_VIDEO:
 
 			// Get a pointer to the codec context for the video stream
 			pCodecCtxOrig := pFormatContext.Streams()[i].Codec()
-			defer (*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig)).AvcodecClose()
+			fmt.Println(pFormatContext.Streams()[i].CodecParameters().CodecType())
 
 			// Find the decoder for the video stream
 			pCodec := avcodec.AvcodecFindDecoder(avcodec.CodecId(pCodecCtxOrig.GetCodecId()))
@@ -51,11 +56,17 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 				log.Println("Unsupported codec!")
 				return
 			}
+
 			// Copy context
 			pCodecCtx := pCodec.AvcodecAllocContext3()
 			defer pCodecCtx.AvcodecClose()
-			if pCodecCtx.AvcodecCopyContext((*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig))) != 0 {
-				log.Println("Couldn't copy codec context")
+			// params := &avcodec.CodecParameters{}
+			// if avcodec.AvcodecParametersFromContext(params, (*avcodec.Context)(unsafe.Pointer(pCodecCtxOrig))) != 0 {
+			// 	log.Println("Couldn't copy codec context: AvcodecParametersFromContext")
+			// 	return
+			// }
+			if avcodec.AvcodecParametersToContext(pCodecCtx, pFormatContext.Streams()[i].CodecParameters()) != 0 {
+				log.Println("Couldn't copy codec context: AvcodecParametersToContext")
 				return
 			}
 
@@ -81,27 +92,34 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 			}
 			defer avutil.AvFrameFree(pFrameRGB)
 
+			fmt.Println("xxx", pCodecCtx.Width(),
+				pCodecCtx.Height())
 			// Determine required buffer size and allocate buffer
-			numBytes := uintptr(avcodec.AvpictureGetSize(avcodec.AV_PIX_FMT_RGB24, pCodecCtx.Width(),
-				pCodecCtx.Height()))
-			buffer := avutil.AvMalloc(numBytes)
-			defer avutil.AvFree(buffer)
+			numBytes := avutil.AvImageGetBufferSize(avutil.AV_PIX_FMT_RGB24, pCodecCtx.Width(),
+				pCodecCtx.Height(), 1)
+			// buffer := avutil.AvMalloc(numBytes) //avutil.AvAllocateImageBuffer?
+			buffer := avutil.AvAllocateImageBuffer(numBytes)
+			defer avutil.AvFreeImageBuffer(buffer)
 
 			// Assign appropriate parts of buffer to image planes in pFrameRGB
 			// Note that pFrameRGB is an AVFrame, but AVFrame is a superset
 			// of AVPicture
-			avp := (*avcodec.Picture)(unsafe.Pointer(pFrameRGB))
-			avp.AvpictureFill((*uint8)(buffer), avcodec.AV_PIX_FMT_RGB24, pCodecCtx.Width(), pCodecCtx.Height())
+			// avp := (*avcodec.Picture)(unsafe.Pointer(pFrameRGB))
+			lineSize := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
+			data := (*[8]*uint8)(unsafe.Pointer(pFrameRGB.DataItem(0)))
 
+			avutil.AvImageFillArrays(*data, *lineSize, buffer, avutil.AV_PIX_FMT_RGB24, pCodecCtx.Width(), pCodecCtx.Height(), 1)
+			// avp.AvpictureFill((*uint8)(buffer), avu til.AV_PIX_FMT_RGB24, pCodecCtx.Width(), pCodecCtx.Height())
 			// initialize SWS context for software scaling
+
 			swsCtx := swscale.SwsGetcontext(
 				pCodecCtx.Width(),
 				pCodecCtx.Height(),
-				(swscale.PixelFormat)(pCodecCtx.PixFmt()),
+				(pCodecCtx.PixFmt()),
 				pCodecCtx.Width(),
 				pCodecCtx.Height(),
-				avcodec.AV_PIX_FMT_RGB24,
-				avcodec.SWS_BILINEAR,
+				avutil.AV_PIX_FMT_RGB24,
+				swscale.SWS_BILINEAR,
 				nil,
 				nil,
 				nil,
@@ -111,19 +129,21 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 			// Read frames and save first five frames to disk
 			frameNumber := 1
 			packet := avcodec.AvPacketAlloc() // TODO sync.Pool
-			defer packet.AvFreePacket()
+			defer avcodec.AvPacketFree(packet)
+
+			log.Println("pFormatContext.AvReadFrame")
 
 			for pFormatContext.AvReadFrame(packet) >= 0 {
 				// Is this a packet from the video stream?
 				if packet.StreamIndex() == i {
 					// Decode video frame
-					response := pCodecCtx.AvcodecSendPacket(packet)
+					response := avcodec.AvcodecSendPacket(pCodecCtx, packet)
 					if response < 0 {
-						log.Printf("Error while sending a packet to the decoder: %s\n", avutil.ErrorFromCode(response))
+						log.Printf("Error while sending a packet to the decoder: %s\n", avutil.AvStrerr(response))
 					}
 					for response >= 0 {
-						response = pCodecCtx.AvcodecReceiveFrame((*avcodec.Frame)(unsafe.Pointer(pFrame)))
-						if response == avutil.AvErrorEAGAIN || response == avutil.AvErrorEOF {
+						response = avcodec.AvcodecReceiveFrame(pCodecCtx, pFrame)
+						if response == avutil.AVERROR_EAGAIN || response == avutil.AVERROR_EOF {
 							break
 						} else if response < 0 {
 							//log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
@@ -133,26 +153,28 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 						}
 
 						if frameNumber <= 5000000000000000000 {
-							// Convert the image from its native format to RGB
-							swscale.SwsScale2(swsCtx, avutil.Data(pFrame),
-								avutil.Linesize(pFrame), 0, pCodecCtx.Height(),
-								avutil.Data(pFrameRGB), avutil.Linesize(pFrameRGB))
+							/*
+								// Convert the image from its native format to RGB
+								swscale.SwsScale(swsCtx, pFrame.DataItem(0),
+									pFrame.LinesizePtr(), 0, pCodecCtx.Height(),
+									pFrameRGB.DataItem(0), pFrameRGB.LinesizePtr())
 
-							// Save the frame to disk
-							// log.Printf("Writing frame %d\n", frameNumber)
-							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
-							img, err := avutil.GetPicture(pFrame)
-							if err != nil {
-								log.Println("get pic error", err)
-							} else {
-								// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
-								// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
-								select {
-								case <-ctx.Done():
-									return
-								case s.imageChan <- img:
+								// Save the frame to disk
+								// log.Printf("Writing frame %d\n", frameNumber)
+								//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
+								img, err := avutil.GetPicture(pFrame)
+								if err != nil {
+									log.Println("get pic error", err)
+								} else {
+									// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
+									// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
+									select {
+									case <-ctx.Done():
+										return
+									case s.imageChan <- img:
+									}
 								}
-							}
+							*/
 						}
 						frameNumber++
 					}
@@ -160,10 +182,10 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 			}
 			log.Println("got some frames", frameNumber)
 			// Stop after saving frames of first video straem
-			break
+			break FRAME_LOOP
 
 		default:
-			//log.Println("Didn't find a video stream")
+			log.Println("Didn't find a video stream")
 
 		}
 	}
