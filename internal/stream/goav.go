@@ -10,6 +10,7 @@ import (
 	"github.com/charlestamz/goav/avformat"
 	"github.com/charlestamz/goav/avutil"
 	"github.com/charlestamz/goav/swscale"
+	old_avutil "github.com/giorgisio/goav/avutil"
 )
 
 func init() {
@@ -105,8 +106,8 @@ FRAME_LOOP:
 			// Note that pFrameRGB is an AVFrame, but AVFrame is a superset
 			// of AVPicture
 			// avp := (*avcodec.Picture)(unsafe.Pointer(pFrameRGB))
-			lineSize := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
 			data := (*[8]*uint8)(unsafe.Pointer(pFrameRGB.DataItem(0)))
+			lineSize := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
 
 			avutil.AvImageFillArrays(*data, *lineSize, buffer, avutil.AV_PIX_FMT_RGB24, pCodecCtx.Width(), pCodecCtx.Height(), 1)
 			// avp.AvpictureFill((*uint8)(buffer), avu til.AV_PIX_FMT_RGB24, pCodecCtx.Width(), pCodecCtx.Height())
@@ -115,7 +116,7 @@ FRAME_LOOP:
 			swsCtx := swscale.SwsGetcontext(
 				pCodecCtx.Width(),
 				pCodecCtx.Height(),
-				(pCodecCtx.PixFmt()),
+				pCodecCtx.PixFmt(),
 				pCodecCtx.Width(),
 				pCodecCtx.Height(),
 				avutil.AV_PIX_FMT_RGB24,
@@ -153,28 +154,35 @@ FRAME_LOOP:
 						}
 
 						if frameNumber <= 5000000000000000000 {
-							/*
-								// Convert the image from its native format to RGB
-								swscale.SwsScale(swsCtx, pFrame.DataItem(0),
-									pFrame.LinesizePtr(), 0, pCodecCtx.Height(),
-									pFrameRGB.DataItem(0), pFrameRGB.LinesizePtr())
+							// Convert the image from its native format to RGB
+							data := (*[8]*uint8)(unsafe.Pointer(pFrame.DataItem(0)))
+							lineSize := (*[8]int32)(unsafe.Pointer(pFrame.LinesizePtr()))
+							dataDst := (*[8]*uint8)(unsafe.Pointer(pFrameRGB.DataItem(0)))
+							lineSizeDst := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
 
-								// Save the frame to disk
-								// log.Printf("Writing frame %d\n", frameNumber)
-								//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
-								img, err := avutil.GetPicture(pFrame)
-								if err != nil {
-									log.Println("get pic error", err)
-								} else {
-									// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
-									// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
-									select {
-									case <-ctx.Done():
-										return
-									case s.imageChan <- img:
-									}
+							response := swscale.SwsScale(swsCtx, *data,
+								*lineSize, 0, 0,
+								*dataDst, *lineSizeDst)
+							if response < 0 {
+								log.Printf("Error while SwsScale: %s\n", avutil.AvStrerr(response))
+							}
+
+							// Save the frame to disk
+							// log.Printf("Writing frame %d\n", frameNumber)
+							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
+							tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
+							img, err := old_avutil.GetPicture(tmp)
+							if err != nil {
+								log.Println("get pic error", err)
+							} else {
+								// dst := image.NewRGBA(img.Bounds()) // TODO use sync pool
+								// draw.Draw(dst, dst.Bounds(), img, image.ZP, draw.Over)
+								select {
+								case <-ctx.Done():
+									return
+								case s.imageChan <- img:
 								}
-							*/
+							}
 						}
 						frameNumber++
 					}
