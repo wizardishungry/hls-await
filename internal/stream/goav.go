@@ -147,7 +147,7 @@ FRAME_LOOP:
 						if response == avutil.AVERROR_EAGAIN || response == avutil.AVERROR_EOF {
 							break
 						} else if response < 0 {
-							//log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
+							log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
 							// return
 							time.Sleep(time.Millisecond) // only seen as helpful on linux
 							continue
