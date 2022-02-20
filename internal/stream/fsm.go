@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/looplab/fsm"
-	"jonwillia.ms/iot/pkg/messages"
 )
 
 type FSM struct {
@@ -28,7 +27,6 @@ func (s *Stream) GetFSM() *fsm.FSM {
 }
 
 func (s *Stream) newFSM() FSM {
-	pub := NewPub()
 	f := FSM{
 		FSM: fsm.NewFSM(
 			"undefined",
@@ -68,19 +66,7 @@ func (s *Stream) newFSM() FSM {
 						if err != nil {
 							log.Println("png.Encode", err)
 						}
-
-						m := messages.Movie{
-							State:           e.Dst,
-							URL:             s.url.String(),
-							ImageAttachment: f.Bytes(),
-						}
-						return
-						err = messages.Publish(pub, m)
-						if err != nil {
-							log.Println("messages.Publish", err)
-						} else {
-							log.Println("sending tv signal")
-						}
+						// TODO: action here
 					}
 				},
 			},

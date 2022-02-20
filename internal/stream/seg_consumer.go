@@ -45,7 +45,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 		segCount++
 		func() {
 			log.Println("getting", tsURL.String())
-			tsResp, err := httpGet(ctx, tsURL.String())
+			tsResp, err := s.httpGet(ctx, tsURL.String())
 			if err != nil {
 				log.Println("httpGet", err)
 				return

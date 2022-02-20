@@ -112,7 +112,7 @@ func (s *Stream) Run(ctx context.Context) error {
 	pollDuration := minPollDuration
 	for {
 		start := time.Now()
-		mediapl, err := doPlaylist(ctx, &s.url)
+		mediapl, err := s.doPlaylist(ctx, &s.url)
 		if err != nil {
 			log.Println("doPlaylist", err)
 			pollDuration = minPollDuration
