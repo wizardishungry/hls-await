@@ -74,6 +74,7 @@ func (s *Stream) newFSM() FSM {
 							URL:             s.url.String(),
 							ImageAttachment: f.Bytes(),
 						}
+						return
 						err = messages.Publish(pub, m)
 						if err != nil {
 							log.Println("messages.Publish", err)
