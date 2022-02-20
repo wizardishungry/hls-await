@@ -22,7 +22,3 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210507161434-a76c4d0a0096 // indirect
 )
-
-replace jonwillia.ms/iot => ../iot
-
-// replace github.com/giorgisio/goav v0.1.0 => github.com/czhaof/goav-ex v1.0.7

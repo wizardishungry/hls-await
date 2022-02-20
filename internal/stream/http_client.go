@@ -15,7 +15,7 @@ func init() {
 	client = &http.Client{}
 	client.Jar, err = cookiejar.New(nil)
 	if err != nil {
-		panic(err)
+		log.WithError(err).Fatal("http client init")
 	}
 
 }
@@ -37,9 +37,9 @@ func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error
 
 	if s.flags.DumpHttp {
 		if s, err := httputil.DumpRequest(req, false); err != nil {
-			panic(err)
+			return nil, fmt.Errorf("httputil.DumpRequest: %w", err)
 		} else {
-			log.Println(string(s))
+			log.Debug(s)
 		}
 	}
 
@@ -53,10 +53,11 @@ func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error
 
 	if s.flags.DumpHttp {
 		if s, err := httputil.DumpResponse(resp, false); err != nil {
-			panic(err)
+			return nil, fmt.Errorf("httputil.DumpResponse: %w", err)
 		} else {
-			log.Println(string(s))
+			log.Debug(s)
 		}
 	}
+
 	return resp, err
 }
