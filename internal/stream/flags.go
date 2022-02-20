@@ -36,6 +36,7 @@ func getFlags() *flags {
 	flag.BoolVar(&f.DumpFSM, "dump-fsm", false, "write graphviz src and exit")
 	flag.BoolVar(&f.OneShot, "one-shot", true, "render an ansi frame when entering up state")
 	flag.BoolVar(&f.Sixel, "sixel", false, "output ansi images as sixels")
+	flag.BoolVar(&f.Worker, "worker", false, "used by process separation, not for end user use")
 	return &f
 }
 

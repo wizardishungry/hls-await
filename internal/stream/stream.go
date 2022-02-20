@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"net/url"
 	"time"
@@ -16,6 +17,9 @@ var mk fifo.Mkfifo
 var cleanup func() error
 
 var log *logrus.Logger = logrus.New() // TODO move onto struct
+func init() {
+	log.Level = logrus.DebugLevel
+}
 
 type StreamOption func(s *Stream) error
 
@@ -80,16 +84,19 @@ func (s *Stream) close() error { // TODO once
 
 func (s *Stream) Run(ctx context.Context) error {
 
-	// if s.worker != nil {
-	// 	if s.flags.Worker {
-	// 		return s.worker.runWorker(ctx)
-	// 	} else {
-	// 		err := s.worker.startChild(ctx)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
+	if s.worker != nil {
+		if s.flags.Worker {
+			err := s.worker.runWorker(ctx)
+			if err != nil {
+				return fmt.Errorf("runWorker %w", err)
+			}
+		} else {
+			err := s.worker.startChild(ctx)
+			if err != nil {
+				return fmt.Errorf("startChild %w", err)
+			}
+		}
+	}
 
 	var err error
 	mk, cleanup, err = fifo.Factory() // TODO: stop using FIFOS

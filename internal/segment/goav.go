@@ -20,6 +20,10 @@ type GoAV struct {
 
 var _ Handler = &GoAV{}
 
+func init() {
+	avcodec.AvcodecRegisterAll() // TODO only instantiate if we build a GoAV
+}
+
 func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response, error) {
 
 	var (

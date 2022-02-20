@@ -4,14 +4,8 @@ import (
 	"context"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
-	"github.com/charlestamz/goav/avcodec"
+	"github.com/sirupsen/logrus"
 )
-
-func init() {
-	// avformat.AvRegisterAll()
-	avcodec.AvcodecRegisterAll()
-
-}
 
 func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 
@@ -24,6 +18,10 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 	if err != nil {
 		log.WithError(err).Error("Stream.ProcessSegment")
 	}
+	log.WithFields(logrus.Fields{
+		"num_images": len(resp.Images),
+		"filename":   file,
+	}).Debug("got images")
 	for _, img := range resp.Images {
 		select {
 		case <-ctx.Done():

@@ -11,12 +11,12 @@ import (
 	"time"
 )
 
-const WORKER_FD = 4 // stdin, stdout, stderr, ...
+const WORKER_FD = 3 // stdin, stdout, stderr, ...
 
 type Worker struct {
-	once         sync.Once
-	unixListener *net.UnixListener
-	cmd          *exec.Cmd
+	once     sync.Once
+	listener *net.UnixListener
+	cmd      *exec.Cmd
 }
 
 func WithWorker(w *Worker) StreamOption {
@@ -48,17 +48,13 @@ func (w *Worker) runWorker(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	defer f.Close()
+
 	listener, err := net.FileListener(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("net.FileListener: %w", err)
 	}
-	w.unixListener = listener.(*net.UnixListener)
-
-	// defer listener.Close() // TODO move to worker close
+	w.listener = listener.(*net.UnixListener)
 
 	return nil
 }
@@ -77,16 +73,18 @@ func (w *Worker) startChild(ctx context.Context) error {
 
 func (w *Worker) spawnChild(ctx context.Context) error {
 	args := append([]string{}, os.Args[1:]...)
-	args = append(args, "-child")
+	args = append(args, "-worker")
 
 	ul, err := net.ListenUnix("unix", &net.UnixAddr{})
 	if err != nil {
 		return err
 	}
-	//net.FileListener()
-	//  defer ul.Close() // TODO move to child's Close method
 
-	w.unixListener = ul
+	if w.listener != nil {
+		w.listener.Close()
+	}
+
+	w.listener = ul
 
 	f, err := ul.File()
 	if err != nil {
@@ -106,16 +104,25 @@ func (w *Worker) spawnChild(ctx context.Context) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("couldn't spawn child: %w", err)
 	}
+	w.cmd = cmd
 	return nil
 }
 
 func (w *Worker) loop(ctx context.Context) {
-	defer func() { w.cmd.Wait() }()
+	defer func() {
+		if w.cmd != nil {
+			w.cmd.Wait()
+		}
+	}()
 	for ctx.Err() == nil {
+		log.Warn("wait")
 		err := w.cmd.Wait()
+		log.Warn("done wait	")
 		if errors.Is(err, context.Canceled) {
 			break
 		}
+
+		log.WithError(err).WithField("exit_code", w.cmd.ProcessState.ExitCode()).Info("respawning child process")
 		err = w.spawnChild(ctx)
 		if err != nil {
 			log.WithError(err).Error("spawn loop")
@@ -125,8 +132,8 @@ func (w *Worker) loop(ctx context.Context) {
 }
 
 func setExtraFile(cmd *exec.Cmd, fd int, f *os.File) error {
-	extraFilesOffset := fd - 3 // stdin, stout, stderr, extafiles...
-	if len(cmd.ExtraFiles)+1 != extraFilesOffset {
+	extraFilesOffset := fd - 3 // stdin, stout, stderr, extrafiles...
+	if len(cmd.ExtraFiles) != extraFilesOffset {
 		return fmt.Errorf("len(cmd.ExtraFiles) != extraFilesOffset (%d != %d) ",
 			len(cmd.ExtraFiles), extraFilesOffset)
 	}
