@@ -1,9 +1,11 @@
 package stream
 
 import (
+	"bytes"
 	"context"
 	"image"
 	"image/color"
+	"image/png"
 	"os"
 	"sync"
 
@@ -34,9 +36,14 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				oneShot = true
 				log.Println("photo time!")
 			}
-		case img := <-s.imageChan:
-			if img == nil {
+		case i := <-s.imageChan:
+			if i == nil {
 				return nil
+			}
+			img, err := png.Decode(bytes.NewBuffer(i))
+			if err != nil {
+				log.WithError(err).Error("png.Decode")
+				continue
 			}
 			go func(img image.Image) {
 				singleImageMutex.Lock()

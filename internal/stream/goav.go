@@ -9,20 +9,25 @@ import (
 
 func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 
-	h := segment.GoAV{
+	var h segment.Handler = &segment.GoAV{
 		VerboseDecoder: s.flags.VerboseDecoder,
 	}
+	if s.worker != nil { // TODO this should be conditional
+		h = s.worker
+	}
 
-	resp, err := h.HandleSegment(ctx, segment.Request{Filename: file})
+	var resp segment.Response
+	err := h.HandleSegment(&segment.Request{Filename: file}, &resp)
 
 	if err != nil {
 		log.WithError(err).Error("Stream.ProcessSegment")
+		return
 	}
 	log.WithFields(logrus.Fields{
-		"num_images": len(resp.Images),
+		"num_images": len(resp.Pngs),
 		"filename":   file,
 	}).Debug("got images")
-	for _, img := range resp.Images {
+	for _, img := range resp.Pngs {
 		select {
 		case <-ctx.Done():
 			return

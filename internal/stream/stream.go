@@ -3,11 +3,11 @@ package stream
 import (
 	"context"
 	"fmt"
-	"image"
 	"net/url"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/fifo"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -33,16 +33,18 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 	}
 
 	s.fsm = s.newFSM()
-	target, err := s.url.Parse("/")
-	if err != nil {
-		return nil, err
+	if true {
+		target, err := s.url.Parse("/")
+		if err != nil {
+			return nil, err
+		}
+		u, err := proxy.NewSingleHostReverseProxy(context.TODO(), target, false) //  TODO don't do this in client
+		if err != nil {
+			return nil, err
+		}
+		u.Path = s.url.Path
+		s.url = *u
 	}
-	u, err := proxy.NewSingleHostReverseProxy(context.TODO(), target)
-	if err != nil {
-		return nil, err
-	}
-	u.Path = s.url.Path
-	s.url = *u
 
 	return s, nil
 }
@@ -59,7 +61,7 @@ type Stream struct {
 	url url.URL
 	// newStream
 	oneShot    chan struct{}
-	imageChan  chan image.Image
+	imageChan  chan []byte
 	flags      *flags
 	segmentMap map[url.URL]struct{}
 
@@ -72,7 +74,7 @@ type Stream struct {
 func newStream() *Stream {
 	return &Stream{
 		oneShot:    make(chan struct{}, 1),
-		imageChan:  make(chan image.Image),
+		imageChan:  make(chan []byte),
 		segmentMap: make(map[url.URL]struct{}),
 	}
 }
@@ -86,15 +88,19 @@ func (s *Stream) Run(ctx context.Context) error {
 
 	if s.worker != nil {
 		if s.flags.Worker {
-			err := s.worker.runWorker(ctx)
+			err := s.worker.startWorker(ctx)
 			if err != nil {
 				return fmt.Errorf("runWorker %w", err)
 			}
+			return nil
 		} else {
 			err := s.worker.startChild(ctx)
 			if err != nil {
 				return fmt.Errorf("startChild %w", err)
 			}
+			var resp segment.Response
+			err = s.worker.HandleSegment(&segment.Request{Filename: "jon"}, &resp)
+			fmt.Println("dummy HandleSegment", resp.Label, len(resp.Pngs), err)
 		}
 	}
 
@@ -145,6 +151,11 @@ func (s *Stream) Run(ctx context.Context) error {
 		timer := time.NewTimer(pollDuration)
 		log.Println("processPlaylist elapsed time", elapsed)
 		log.Println("processPlaylist pollDuration", pollDuration)
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 		log.Println("processPlaylist sleeping for", sleepFor)
 		select {
 		case <-ctx.Done():

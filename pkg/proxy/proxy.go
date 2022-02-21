@@ -16,7 +16,7 @@ import (
 const ttl = time.Hour
 const maxBytes = 1024 * 1024 * 1024 * 1024 // 1gig
 
-func NewSingleHostReverseProxy(ctx context.Context, target *url.URL) (*url.URL, error) {
+func NewSingleHostReverseProxy(ctx context.Context, target *url.URL, flagDumpHttp bool) (*url.URL, error) {
 	rp := httputil.NewSingleHostReverseProxy(target)
 	old := rp.Director
 	director := func(req *http.Request) {
@@ -32,11 +32,11 @@ func NewSingleHostReverseProxy(ctx context.Context, target *url.URL) (*url.URL, 
 		req.Header.Set("host", target.Host)
 		fmt.Println(target, req.Host)
 		req.Host = target.Host
-		if /* *flagDumpHttp */ true { // TODO
+		if flagDumpHttp { // TODO
 			if s, err := httputil.DumpRequest(req, false); err != nil {
 				panic(err)
 			} else {
-				fmt.Println(string(s))
+				fmt.Println("proxy dumping", string(s))
 			}
 		}
 
@@ -52,7 +52,7 @@ func NewSingleHostReverseProxy(ctx context.Context, target *url.URL) (*url.URL, 
 			newSize := c.Size()
 			time.Sleep(time.Second)
 			if size != newSize {
-				fmt.Printf("in memory cache: %d -> %d\n", size, newSize)
+				// fmt.Printf("in memory cache: %d -> %d\n", size, newSize)
 				size = newSize
 			}
 		}

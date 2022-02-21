@@ -1,8 +1,10 @@
 package segment
 
 import (
-	"context"
+	"bytes"
+	"image/png"
 	"log"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -20,27 +22,36 @@ type GoAV struct {
 
 var _ Handler = &GoAV{}
 
-func init() {
-	avcodec.AvcodecRegisterAll() // TODO only instantiate if we build a GoAV
-}
+var onceAvcodecRegisterAll sync.Once
 
-func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response, error) {
+func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
+	onceAvcodecRegisterAll.Do(func() {
+		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
+	})
 
+	if request.Filename == "jon" {
+		resp = &Response{}
+		resp.Pngs = [][]byte{
+			{1},
+		}
+		resp.Label = "ok"
+		return nil
+		return errors.New("jon rules")
+	}
 	var (
-		file    = request.Filename
-		apiResp = &Response{}
+		file = request.Filename
 	)
 
 	pFormatContext := avformat.AvformatAllocContext()
 
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if e := avformat.AvformatOpenInput(&pFormatContext, file, nil, nil); e != 0 {
-		return nil, errors.Wrap(goavError(e), "couldn't open file.")
+		return errors.Wrap(goavError(e), "couldn't open file.")
 	}
 	defer avformat.AvformatCloseInput(pFormatContext)
 	// Retrieve stream information
 	if e := pFormatContext.AvformatFindStreamInfo(nil); e < 0 {
-		return nil, errors.Wrap(goavError(e), "couldn't find stream information.")
+		return errors.Wrap(goavError(e), "couldn't find stream information.")
 	}
 
 	// Dump information about file onto standard error
@@ -60,7 +71,7 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 			// Find the decoder for the video stream
 			pCodec := avcodec.AvcodecFindDecoder(avcodec.CodecId(pCodecCtxOrig.GetCodecId()))
 			if pCodec == nil {
-				return nil, errors.New("unsupported codec")
+				return errors.New("unsupported codec")
 			}
 
 			// Copy context
@@ -68,18 +79,18 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 			defer pCodecCtx.AvcodecClose()
 
 			if e := avcodec.AvcodecParametersToContext(pCodecCtx, pFormatContext.Streams()[i].CodecParameters()); e != 0 {
-				return nil, errors.Wrap(goavError(e), "coouldn't copy codec context: AvcodecParametersToContext")
+				return errors.Wrap(goavError(e), "coouldn't copy codec context: AvcodecParametersToContext")
 			}
 
 			// Open codec
 			if e := pCodecCtx.AvcodecOpen2(pCodec, nil); e < 0 {
-				return nil, errors.Wrap(goavError(e), "coouldn't open codec")
+				return errors.Wrap(goavError(e), "coouldn't open codec")
 			}
 
 			// Allocate video frame
 			pFrame := avutil.AvFrameAlloc()
 			if pFrame == nil {
-				return nil, errors.New("unable to allocate Frame")
+				return errors.New("unable to allocate Frame")
 
 			}
 			defer avutil.AvFrameFree(pFrame)
@@ -87,7 +98,7 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 			// Allocate an AVFrame structure
 			pFrameRGB := avutil.AvFrameAlloc()
 			if pFrameRGB == nil {
-				return nil, errors.New("unable to allocate RGB Frame")
+				return errors.New("unable to allocate RGB Frame")
 			}
 			defer avutil.AvFrameFree(pFrameRGB)
 
@@ -104,7 +115,7 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 			lineSize := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
 
 			if e := avutil.AvImageFillArrays(*data, *lineSize, buffer, avutil.AV_PIX_FMT_RGB24, pCodecCtx.Width(), pCodecCtx.Height(), 1); e < 0 {
-				return nil, errors.Wrap(goavError(e), "coouldn't AvImageFillArrays")
+				return errors.Wrap(goavError(e), "coouldn't AvImageFillArrays")
 			}
 
 			// initialize SWS context for software scaling
@@ -133,7 +144,7 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 					// Decode video frame
 					response := avcodec.AvcodecSendPacket(pCodecCtx, packet)
 					if response < 0 {
-						return nil, errors.Wrap(goavError(response), "error while sending a packet to the decoder")
+						return errors.Wrap(goavError(response), "error while sending a packet to the decoder")
 					}
 					for response >= 0 {
 						response = avcodec.AvcodecReceiveFrame(pCodecCtx, pFrame)
@@ -157,7 +168,7 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 								*lineSize, 0, 0,
 								*dataDst, *lineSizeDst)
 							if response < 0 {
-								return nil, errors.Wrap(goavError(response), "error while SwsScale")
+								return errors.Wrap(goavError(response), "error while SwsScale")
 							}
 
 							// Save the frame to disk
@@ -166,10 +177,15 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 							tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
 							img, err := old_avutil.GetPicture(tmp)
 							if err != nil {
-								return nil, errors.Wrap(err, "GetPicture")
-							} else {
-								apiResp.Images = append(apiResp.Images, img)
+								return errors.Wrap(err, "GetPicture")
 							}
+							// TODO num samples
+							f := &bytes.Buffer{} // TODO sync.Pool
+							err = png.Encode(f, img)
+							if err != nil {
+								return errors.Wrap(err, "png.Encode")
+							}
+							resp.Pngs = append(resp.Pngs, f.Bytes())
 						}
 						frameNumber++
 					}
@@ -178,11 +194,11 @@ func (goav *GoAV) HandleSegment(ctx context.Context, request Request) (*Response
 			log.Println("got some frames", frameNumber)
 			// Stop after saving frames of first video straem
 			if frameNumber > 0 {
-				return apiResp, nil
+				return nil
 			}
 		}
 	}
-	return nil, errors.New("Didn't find a video stream")
+	return errors.New("Didn't find a video stream")
 }
 
 func goavError(response int) error {

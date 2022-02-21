@@ -5,18 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/rpc"
 	"os"
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 )
 
 const WORKER_FD = 3 // stdin, stdout, stderr, ...
 
+// TODO split the server implmentation off the Worker struct
+
 type Worker struct {
+	mutex    sync.RWMutex
 	once     sync.Once
-	listener *net.UnixListener
 	cmd      *exec.Cmd
+	listener *net.UnixListener
+	client   *rpc.Client
+	conn     *net.UnixConn
 }
 
 func WithWorker(w *Worker) StreamOption {
@@ -30,19 +38,13 @@ func WithWorker(w *Worker) StreamOption {
 func (w *Worker) startWorker(ctx context.Context) error {
 	var retErr error
 	w.once.Do(func() {
-		retErr = w.runWorker(ctx)
-		if retErr == nil {
-			go func() {
-				// rpc serve here TODO
-				log.Info("rpc serve in child")
-			}()
-		}
+		retErr = runWorker(ctx)
 	})
 	return retErr
 }
 
-// runWorker runs in separate process that communicates over ExtraFiles
-func (w *Worker) runWorker(ctx context.Context) error {
+// runWorker runs in separate process
+func runWorker(ctx context.Context) error {
 	// log = log.WithField("child", true)
 	f, err := fromFD(WORKER_FD)
 	if err != nil {
@@ -50,11 +52,26 @@ func (w *Worker) runWorker(ctx context.Context) error {
 	}
 	defer f.Close()
 
-	listener, err := net.FileListener(f)
+	l, err := net.FileListener(f)
 	if err != nil {
 		return fmt.Errorf("net.FileListener: %w", err)
 	}
-	w.listener = listener.(*net.UnixListener)
+	listener := l.(*net.UnixListener)
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
+
+	server := rpc.NewServer()
+	segApi := &segment.GoAV{
+		VerboseDecoder: true, // TODO pass flags
+	}
+
+	err = server.Register(segApi)
+	if err != nil {
+		log.WithError(err).Fatal("server.Register")
+	}
+	server.Accept(listener)
 
 	return nil
 }
@@ -71,17 +88,32 @@ func (w *Worker) startChild(ctx context.Context) error {
 	return retErr
 }
 
+func (w *Worker) closeChild(ctx context.Context) error {
+	// PRE: must own write mutex
+	if w.client != nil {
+		w.client.Close()
+	}
+	if w.conn != nil {
+		w.conn.Close()
+	}
+	if w.listener != nil {
+		w.listener.Close()
+	}
+	return nil
+}
+
 func (w *Worker) spawnChild(ctx context.Context) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	w.closeChild(ctx)
+
 	args := append([]string{}, os.Args[1:]...)
 	args = append(args, "-worker")
 
 	ul, err := net.ListenUnix("unix", &net.UnixAddr{})
 	if err != nil {
 		return err
-	}
-
-	if w.listener != nil {
-		w.listener.Close()
 	}
 
 	w.listener = ul
@@ -105,20 +137,34 @@ func (w *Worker) spawnChild(ctx context.Context) error {
 		return fmt.Errorf("couldn't spawn child: %w", err)
 	}
 	w.cmd = cmd
+
+	conn, err := net.DialUnix("unix", nil, ul.Addr().(*net.UnixAddr))
+	if err != nil {
+		return err
+	}
+
+	w.client = rpc.NewClient(conn)
+
 	return nil
 }
 
 func (w *Worker) loop(ctx context.Context) {
 	defer func() {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
 		if w.cmd != nil {
 			w.cmd.Wait()
 		}
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+		w.closeChild(ctx)
 	}()
 	for ctx.Err() == nil {
-		log.Warn("wait")
-		err := w.cmd.Wait()
-		log.Warn("done wait	")
-		if errors.Is(err, context.Canceled) {
+		w.mutex.RLock()
+		cmd := w.cmd
+		w.mutex.RUnlock()
+		err := cmd.Wait()
+		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 			break
 		}
 
@@ -147,4 +193,18 @@ func fromFD(fd uintptr) (f *os.File, err error) {
 		err = fmt.Errorf("nil for fd %d", fd)
 	}
 	return
+}
+
+var _ segment.Handler = &Worker{}
+
+func (w *Worker) HandleSegment(request *segment.Request, resp *segment.Response) error {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	if w.client == nil {
+		return errors.New("rpc client not set yet")
+	}
+
+	err := w.client.Call("GoAV.HandleSegment", request, resp)
+	return err
 }

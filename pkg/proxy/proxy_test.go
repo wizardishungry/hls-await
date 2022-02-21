@@ -11,7 +11,7 @@ import (
 func TestProxy(t *testing.T) {
 	ctx := context.Background()
 	target, _ := url.Parse("https://www.yahoo.com/")
-	u, err := NewSingleHostReverseProxy(ctx, target)
+	u, err := NewSingleHostReverseProxy(ctx, target, true)
 	if err != nil {
 		t.Fatal(err)
 	}
