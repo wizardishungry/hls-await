@@ -33,6 +33,10 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
+		// go func() {
+		// 	time.Sleep(10 * time.Second)
+		// 	panic("test restarting")
+		// }()
 	})
 
 	if request.Filename == "jon" {
