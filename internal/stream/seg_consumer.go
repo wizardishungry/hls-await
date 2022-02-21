@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/grafov/m3u8"
+	"github.com/pkg/errors"
 )
 
 func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
@@ -43,57 +44,37 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			continue
 		}
 		segCount++
-		func() {
+		err = func() error {
 			log.Println("getting", tsURL.String())
 			tsResp, err := s.httpGet(ctx, tsURL.String())
 			if err != nil {
-				log.Println("httpGet", err)
-				return
+				return errors.Wrap(err, "httpGet")
 			}
 			defer tsResp.Body.Close()
 
-			path, cleanup, err := mk()
-			if err != nil {
-				log.Println("mkfifo", err)
-				return
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
 			}
-			defer func() {
-				if err := cleanup(); err != nil {
-					log.Println("mkfifo cleanup", err)
-				}
-			}()
 
-			c := make(chan struct{}, 0)
-			defer func() {
-				select {
-				case <-ctx.Done():
-				case <-c:
-				}
-			}()
-
-			go func() { // TODO use a worker pool?
-				defer close(c)
-				out, err := os.Create(path)
-				if err != nil {
-					log.Println("fifo os.Create", err)
-					return
-				}
-				defer out.Close()
-
-				defer func() {
-					if err := out.Close(); err != nil {
-						log.Println("fifo os.Close", err)
-					}
-				}()
-				if i, err := io.Copy(out, tsResp.Body); err != nil {
-					log.Println("fifo io.Copy", i, err)
-					// return
-				}
-			}()
-			log.Println("frame ", path)
-			s.ProcessSegment(ctx, path)
+			tmpFile, err := os.CreateTemp("", "hls-await-")
+			if err != nil {
+				return errors.Wrap(err, "os.CreateTemp")
+			}
+			defer tmpFile.Close()
+			if _, err := io.Copy(tmpFile, tsResp.Body); err != nil {
+				return errors.Wrap(err, "io.Copy")
+			}
+			log.Println("processing ", tmpFile.Name())
+			s.ProcessSegment(ctx, tmpFile.Name())
+			log.Println("processed ", tmpFile.Name())
 			s.segmentMap[*tsURL] = struct{}{}
+			return nil
 		}()
+		if err != nil {
+			log.WithError(err).Error("processing segment")
+		}
 	}
 	log.Println("segs processed", segCount)
 	return nil
