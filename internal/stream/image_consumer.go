@@ -5,13 +5,13 @@ import (
 	"context"
 	"image"
 	"image/color"
-	"image/png"
 	"os"
 	"sync"
 
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/mattn/go-sixel"
+	"golang.org/x/image/bmp"
 )
 
 const goimagehashDim = 16 // should be power of 2, color bars show noise at 16
@@ -40,9 +40,9 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 			if i == nil {
 				return nil
 			}
-			img, err := png.Decode(bytes.NewBuffer(i))
+			img, err := bmp.Decode(bytes.NewBuffer(i))
 			if err != nil {
-				log.WithError(err).Error("png.Decode")
+				log.WithError(err).Error("bmp.Decode")
 				continue
 			}
 			go func(img image.Image) {

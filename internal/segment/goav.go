@@ -2,8 +2,10 @@ package segment
 
 import (
 	"bytes"
+	"context"
 	"image/png"
 	"log"
+	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -14,10 +16,17 @@ import (
 	"github.com/charlestamz/goav/swscale"
 	old_avutil "github.com/giorgisio/goav/avutil"
 	"github.com/pkg/errors"
+	"golang.org/x/image/bmp"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 type GoAV struct {
 	VerboseDecoder bool
+}
+
+var pngEncoder = &png.Encoder{
+	CompressionLevel: png.NoCompression,
 }
 
 var _ Handler = &GoAV{}
@@ -25,13 +34,15 @@ var _ Handler = &GoAV{}
 var onceAvcodecRegisterAll sync.Once
 
 func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
+	var mutex sync.Mutex
+
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
 	})
 
 	if request.Filename == "jon" {
 		resp = &Response{}
-		resp.Pngs = [][]byte{
+		resp.RawImages = [][]byte{
 			{1},
 		}
 		resp.Label = "ok"
@@ -126,17 +137,20 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 				pCodecCtx.Width(),
 				pCodecCtx.Height(),
 				avutil.AV_PIX_FMT_RGB24,
-				swscale.SWS_BILINEAR,
-				nil,
+				swscale.SWS_BILINEAR, nil,
 				nil,
 				nil,
 			)
 			defer swscale.SwsFreecontext(swsCtx)
 
-			// Read frames and save first five frames to disk
-			frameNumber := 1
-			packet := avcodec.AvPacketAlloc() // TODO sync.Pool?
+			frameNumber := 0
+			packet := avcodec.AvPacketAlloc()
 			defer avcodec.AvPacketFree(packet)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			g, ctx := errgroup.WithContext(ctx)
+			sem := semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0)))
 
 			for pFormatContext.AvReadFrame(packet) >= 0 {
 				// Is this a packet from the video stream?
@@ -157,7 +171,7 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 							continue
 						}
 
-						if frameNumber <= 5000000000000000000 {
+						if true || frameNumber <= 5000000000000000000 { // TODO remove
 							// Convert the image from its native format to RGB
 							data := (*[8]*uint8)(unsafe.Pointer(pFrame.DataItem(0)))
 							lineSize := (*[8]int32)(unsafe.Pointer(pFrame.LinesizePtr()))
@@ -179,22 +193,35 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 							if err != nil {
 								return errors.Wrap(err, "GetPicture")
 							}
-							// TODO num samples
-							f := &bytes.Buffer{} // TODO sync.Pool
-							err = png.Encode(f, img)
-							if err != nil {
-								return errors.Wrap(err, "png.Encode")
+							if err := sem.Acquire(ctx, 1); err != nil {
+								return err
 							}
-							resp.Pngs = append(resp.Pngs, f.Bytes())
+							mutex.Lock()
+							resp.RawImages = append(resp.RawImages, nil)
+							pos := len(resp.RawImages) - 1
+							mutex.Unlock()
+
+							g.Go(func() error {
+								defer sem.Release(1)
+								// TODO num samples
+								f := &bytes.Buffer{}
+								err = bmp.Encode(f, img)
+								if err != nil {
+									return errors.Wrap(err, "bmp.Encode")
+								}
+								resp.RawImages[pos] = f.Bytes()
+								return nil
+							})
 						}
 						frameNumber++
 					}
 				}
 			}
+			err := g.Wait()
 			log.Println("got some frames", frameNumber)
 			// Stop after saving frames of first video straem
 			if frameNumber > 0 {
-				return nil
+				return err
 			}
 		}
 	}

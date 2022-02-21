@@ -6,15 +6,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/WIZARDISHUNGRY/hls-await/internal/fifo"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
-
-var mk fifo.Mkfifo
-var cleanup func() error
 
 var log *logrus.Logger = logrus.New() // TODO move onto struct
 func init() {
@@ -100,21 +96,9 @@ func (s *Stream) Run(ctx context.Context) error {
 			}
 			var resp segment.Response
 			err = s.worker.HandleSegment(&segment.Request{Filename: "jon"}, &resp)
-			fmt.Println("dummy HandleSegment", resp.Label, len(resp.Pngs), err)
+			fmt.Println("dummy HandleSegment", resp.Label, len(resp.RawImages), err)
 		}
 	}
-
-	var err error
-	mk, cleanup, err = fifo.Factory() // TODO: stop using FIFOS
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func() {
-		err := cleanup()
-		if err != nil {
-			log.Fatal("MkFIFOFactory()cleanup()", err)
-		}
-	}()
 
 	defer s.close()
 	g, ctx := errgroup.WithContext(ctx)

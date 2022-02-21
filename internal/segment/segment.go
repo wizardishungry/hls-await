@@ -12,10 +12,10 @@ type Request struct {
 	Filename string
 }
 type Response struct {
-	Label string
-	Pngs  [][]byte
+	Label     string
+	RawImages [][]byte
 }
 
-func imagesToBitmaps(images []image.Image) {
+func imagesToBitmaps(img *image.YCbCr) {
 
 }

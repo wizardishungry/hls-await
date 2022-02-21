@@ -24,10 +24,10 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 		return
 	}
 	log.WithFields(logrus.Fields{
-		"num_images": len(resp.Pngs),
+		"num_images": len(resp.RawImages),
 		"filename":   file,
 	}).Debug("got images")
-	for _, img := range resp.Pngs {
+	for _, img := range resp.RawImages {
 		select {
 		case <-ctx.Done():
 			return
