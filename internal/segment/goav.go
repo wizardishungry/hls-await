@@ -1,11 +1,10 @@
 package segment
 
 import (
-	"bytes"
-	"context"
+	"image"
+	"image/draw"
 	"image/png"
 	"log"
-	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -16,9 +15,6 @@ import (
 	"github.com/charlestamz/goav/swscale"
 	old_avutil "github.com/giorgisio/goav/avutil"
 	"github.com/pkg/errors"
-	"golang.org/x/image/bmp"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 type GoAV struct {
@@ -34,7 +30,6 @@ var _ Handler = &GoAV{}
 var onceAvcodecRegisterAll sync.Once
 
 func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
-	var mutex sync.Mutex
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
@@ -42,8 +37,8 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 
 	if request.Filename == "jon" {
 		resp = &Response{}
-		resp.RawImages = [][]byte{
-			{1},
+		resp.RawImages = []*image.RGBA{
+			image.NewRGBA(image.Rect(0, 0, 100, 100)),
 		}
 		resp.Label = "ok"
 		return nil
@@ -147,11 +142,6 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 			packet := avcodec.AvPacketAlloc()
 			defer avcodec.AvPacketFree(packet)
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			g, ctx := errgroup.WithContext(ctx)
-			sem := semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0)))
-
 			for pFormatContext.AvReadFrame(packet) >= 0 {
 				// Is this a packet from the video stream?
 				if packet.StreamIndex() == i {
@@ -189,39 +179,26 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 							// log.Printf("Writing frame %d\n", frameNumber)
 							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
 							tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
-							img, err := old_avutil.GetPicture(tmp)
+							yimg, err := old_avutil.GetPicture(tmp)
+							// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
+
+							// convert to RGBA because it serializes quickly
+							img := image.NewRGBA(yimg.Rect)
+							draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
+
 							if err != nil {
 								return errors.Wrap(err, "GetPicture")
 							}
-							if err := sem.Acquire(ctx, 1); err != nil {
-								return err
-							}
-							mutex.Lock()
-							resp.RawImages = append(resp.RawImages, nil)
-							pos := len(resp.RawImages) - 1
-							mutex.Unlock()
-
-							g.Go(func() error {
-								defer sem.Release(1)
-								// TODO num samples
-								f := &bytes.Buffer{}
-								err = bmp.Encode(f, img)
-								if err != nil {
-									return errors.Wrap(err, "bmp.Encode")
-								}
-								resp.RawImages[pos] = f.Bytes()
-								return nil
-							})
+							resp.RawImages = append(resp.RawImages, img)
 						}
 						frameNumber++
 					}
 				}
 			}
-			err := g.Wait()
 			log.Println("got some frames", frameNumber)
 			// Stop after saving frames of first video straem
 			if frameNumber > 0 {
-				return err
+				return nil
 			}
 		}
 	}

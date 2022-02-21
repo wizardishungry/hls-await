@@ -1,7 +1,6 @@
 package stream
 
 import (
-	"bytes"
 	"context"
 	"image"
 	"image/color"
@@ -11,7 +10,6 @@ import (
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/mattn/go-sixel"
-	"golang.org/x/image/bmp"
 )
 
 const goimagehashDim = 16 // should be power of 2, color bars show noise at 16
@@ -26,7 +24,6 @@ var (                     // TODO move into struct
 func (s *Stream) consumeImages(ctx context.Context) error {
 
 	oneShot := false
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -36,20 +33,17 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				oneShot = true
 				log.Println("photo time!")
 			}
-		case i := <-s.imageChan:
-			if i == nil {
+		case img := <-s.imageChan:
+			if img == nil {
 				return nil
 			}
-			img, err := bmp.Decode(bytes.NewBuffer(i))
-			if err != nil {
-				log.WithError(err).Error("bmp.Decode")
-				continue
-			}
+
 			go func(img image.Image) {
 				singleImageMutex.Lock()
 				defer singleImageMutex.Unlock()
 				singleImage = img
 			}(img)
+
 			func(img image.Image) {
 				if oneShot {
 					oneShot = false

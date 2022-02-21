@@ -13,7 +13,7 @@ type Request struct {
 }
 type Response struct {
 	Label     string
-	RawImages [][]byte
+	RawImages []*image.RGBA
 }
 
 func imagesToBitmaps(img *image.YCbCr) {

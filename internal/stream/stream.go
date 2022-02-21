@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"fmt"
+	"image"
 	"net/url"
 	"time"
 
@@ -57,7 +58,7 @@ type Stream struct {
 	url url.URL
 	// newStream
 	oneShot    chan struct{}
-	imageChan  chan []byte
+	imageChan  chan image.Image
 	flags      *flags
 	segmentMap map[url.URL]struct{}
 
@@ -70,7 +71,7 @@ type Stream struct {
 func newStream() *Stream {
 	return &Stream{
 		oneShot:    make(chan struct{}, 1),
-		imageChan:  make(chan []byte),
+		imageChan:  make(chan image.Image, 100), // TODO magic size
 		segmentMap: make(map[url.URL]struct{}),
 	}
 }
