@@ -96,7 +96,8 @@ func (s *Stream) Run(ctx context.Context) error {
 				return fmt.Errorf("startChild %w", err)
 			}
 			var resp segment.Response
-			err = s.worker.HandleSegment(&segment.Request{Filename: "jon"}, &resp)
+			var req segment.Request = &segment.FilenameRequest{Filename: "jon"}
+			err = s.worker.HandleSegment(&req, &resp)
 			fmt.Println("dummy HandleSegment", resp.Label, len(resp.RawImages), err)
 		}
 	}

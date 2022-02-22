@@ -1,6 +1,7 @@
 package segment
 
 import (
+	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
@@ -29,7 +30,7 @@ var _ Handler = &GoAV{}
 
 var onceAvcodecRegisterAll sync.Once
 
-func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
+func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
@@ -38,6 +39,11 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 		// 	panic("test restarting")
 		// }()
 	})
+
+	request, ok := (*req).(*FilenameRequest)
+	if !ok {
+		return fmt.Errorf("request isn't a FilenameRequest: %T", req) // TODO remove
+	}
 
 	if request.Filename == "jon" {
 		resp = &Response{}
@@ -53,6 +59,8 @@ func (goav *GoAV) HandleSegment(request *Request, resp *Response) error {
 	)
 
 	pFormatContext := avformat.AvformatAllocContext()
+
+	// TODO test pipes protocol https://gist.github.com/wseemann/b1694cbef5689ca2a4ded5064eb91750#file-ffmpeg_mediametadataretriever-c
 
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if e := avformat.AvformatOpenInput(&pFormatContext, file, nil, nil); e != 0 {

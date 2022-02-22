@@ -7,17 +7,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (s *Stream) ProcessSegment(ctx context.Context, file string) {
+func (s *Stream) ProcessSegment(ctx context.Context, request segment.Request) {
 
 	var h segment.Handler = &segment.GoAV{
 		VerboseDecoder: s.flags.VerboseDecoder,
 	}
-	if s.worker != nil { // TODO this should be conditional
+	if s.worker != nil { // TODO this should be conditional, allow usage of no priv sep
 		h = s.worker
 	}
 
 	var resp segment.Response
-	err := h.HandleSegment(&segment.Request{Filename: file}, &resp)
+	err := h.HandleSegment(&request, &resp)
 
 	if err != nil {
 		log.WithError(err).Error("Stream.ProcessSegment")
@@ -25,7 +25,6 @@ func (s *Stream) ProcessSegment(ctx context.Context, file string) {
 	}
 	log.WithFields(logrus.Fields{
 		"num_images": len(resp.RawImages),
-		"filename":   file,
 	}).Debug("got images")
 	for _, img := range resp.RawImages {
 		select {

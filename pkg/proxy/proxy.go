@@ -59,7 +59,7 @@ func NewSingleHostReverseProxy(ctx context.Context, target *url.URL, flagDumpHtt
 	}()
 
 	rp.Transport = httpcache.NewTransport(c)
-	l, err := net.Listen("tcp", "127.0.0.1:") // TODO use outgoing socket addr
+	l, err := net.Listen("tcp", "127.0.0.1:") // TODO use outgoing socket addr, so we can pass the same url to roku and not fetch segments twice (save bandwidth)
 	if err != nil {
 		return nil, err
 	}

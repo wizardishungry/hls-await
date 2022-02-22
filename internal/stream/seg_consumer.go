@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/grafov/m3u8"
 	"github.com/pkg/errors"
 )
@@ -62,12 +63,26 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			if err != nil {
 				return errors.Wrap(err, "os.CreateTemp")
 			}
+			defer os.Remove(tmpFile.Name())
 			defer tmpFile.Close()
 			if _, err := io.Copy(tmpFile, tsResp.Body); err != nil {
 				return errors.Wrap(err, "io.Copy")
 			}
+
+			r, w, err := os.Pipe()
+			if err != nil {
+				return errors.Wrap(err, "os.Pipe")
+			}
+			defer r.Close()
+			defer w.Close()
+			rFD := r.Fd()
+			_ = rFD
+
+			var request segment.Request // TODO support passing FDs or readers directly
+			request = &segment.FilenameRequest{Filename: tmpFile.Name()}
+
 			log.Println("processing ", tmpFile.Name())
-			s.ProcessSegment(ctx, tmpFile.Name())
+			s.ProcessSegment(ctx, request)
 			log.Println("processed ", tmpFile.Name())
 			s.segmentMap[*tsURL] = struct{}{}
 			return nil
