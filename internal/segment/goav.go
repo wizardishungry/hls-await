@@ -6,6 +6,7 @@ import (
 	"image/draw"
 	"image/png"
 	"log"
+	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -58,9 +59,19 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 		file = request.Filename
 	)
 
-	pFormatContext := avformat.AvformatAllocContext()
+	// test pipes protocol https://gist.github.com/wseemann/b1694cbef5689ca2a4ded5064eb91750#file-ffmpeg_mediametadataretriever-c
+	f, err := os.Open(file)
+	if err != nil {
+		return errors.Wrap(err, "os.Open")
+	}
+	defer f.Close()
+	fd := f.Fd()
+	if fd <= 0 {
+		return fmt.Errorf("fd is weird %d", fd)
+	}
+	file = fmt.Sprintf("pipe:%d", fd)
 
-	// TODO test pipes protocol https://gist.github.com/wseemann/b1694cbef5689ca2a4ded5064eb91750#file-ffmpeg_mediametadataretriever-c
+	pFormatContext := avformat.AvformatAllocContext()
 
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if e := avformat.AvformatOpenInput(&pFormatContext, file, nil, nil); e != 0 {
