@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -80,9 +81,14 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			}
 			defer r.Close()
 			defer w.Close()
-			if _, err := io.Copy(w, tsResp.Body); err != nil {
-				return errors.Wrap(err, "io.Copy")
-			}
+			fmt.Println("io.Copy")
+
+			go func() {
+				if _, err := io.Copy(w, tsResp.Body); err != nil {
+					log.WithError(err).Warn("io.Copy")
+				}
+			}()
+
 			rFD := r.Fd()
 
 			var request segment.Request // TODO support passing FDs or readers directly
@@ -90,10 +96,10 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			request = &segment.FDRequest{FD: rFD} // TODO use os.Pipe value
 
 			log.Println("processing ", name)
-			s.ProcessSegment(ctx, request)
+			err = s.ProcessSegment(ctx, request) // TODO retries?
 			log.Println("processed ", name)
 			s.segmentMap[*tsURL] = struct{}{}
-			return nil
+			return err
 		}()
 		if err != nil {
 			log.WithError(err).Error("processing segment")
