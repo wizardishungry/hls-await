@@ -2,13 +2,14 @@ package stream
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/grafov/m3u8"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
@@ -47,12 +48,14 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 		}
 		segCount++
 		err = func() error {
+			start := time.Now()
 			name := tsURL.String()
 			log.Println("getting", name)
 			tsResp, err := s.httpGet(ctx, name)
 			if err != nil {
 				return errors.Wrap(err, "httpGet")
 			}
+			getDone := time.Now().Sub(start)
 			defer tsResp.Body.Close()
 
 			select {
@@ -61,32 +64,20 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			default:
 			}
 
-			// tmpFile, err := os.CreateTemp("", "hls-await-")
-			// if err != nil {
-			// 	return errors.Wrap(err, "os.CreateTemp")
-			// }
-			// defer os.Remove(tmpFile.Name())
-			// defer tmpFile.Close()
-
-			// if _, err := io.Copy(tmpFile, tsResp.Body); err != nil {
-			// 	return errors.Wrap(err, "io.Copy")
-			// }
-			// if _, err = tmpFile.Seek(0, 0); err != nil {
-			// 	return errors.Wrap(err, "tmpFile.Seek")
-			// }
-
 			r, w, err := os.Pipe()
 			if err != nil {
 				return errors.Wrap(err, "os.Pipe")
 			}
 			defer r.Close()
 			defer w.Close()
-			fmt.Println("io.Copy")
 
+			var copyDur time.Duration
 			go func() {
+				copyStart := time.Now()
 				if _, err := io.Copy(w, tsResp.Body); err != nil {
 					log.WithError(err).Warn("io.Copy")
 				}
+				copyDur = time.Now().Sub(copyStart)
 			}()
 
 			rFD := r.Fd()
@@ -95,10 +86,17 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			// request = &segment.FilenameRequest{Filename: tmpFile.Name()}
 			request = &segment.FDRequest{FD: rFD} // TODO use os.Pipe value
 
-			log.Println("processing ", name)
 			err = s.ProcessSegment(ctx, request) // TODO retries?
-			log.Println("processed ", name)
+			processDone := time.Now().Sub(start)
 			s.segmentMap[*tsURL] = struct{}{}
+
+			log.WithFields(logrus.Fields{
+				"get_dur":     getDone,
+				"process_dur": (processDone - getDone),
+				"overall_dur": processDone,
+				"copy_dur":    copyDur,
+			}).Infof("processed segment %s", name)
+
 			return err
 		}()
 		if err != nil {
