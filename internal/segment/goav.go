@@ -40,36 +40,40 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 		// 	panic("test restarting")
 		// }()
 	})
+	var fd uintptr
 
-	request, ok := (*req).(*FilenameRequest)
-	if !ok {
-		return fmt.Errorf("request isn't a FilenameRequest: %T", req) // TODO remove
-	}
-
-	if request.Filename == "jon" {
-		resp = &Response{}
-		resp.RawImages = []*image.RGBA{
-			image.NewRGBA(image.Rect(0, 0, 100, 100)),
+	if request, ok := (*req).(*FilenameRequest); ok {
+		if request.Filename == "jon" {
+			resp = &Response{}
+			resp.RawImages = []*image.RGBA{
+				image.NewRGBA(image.Rect(0, 0, 100, 100)),
+			}
+			resp.Label = "ok"
+			return nil
+			return errors.New("jon rules")
 		}
-		resp.Label = "ok"
-		return nil
-		return errors.New("jon rules")
-	}
-	var (
-		file = request.Filename
-	)
+		var (
+			file = request.Filename
+		)
 
-	// test pipes protocol https://gist.github.com/wseemann/b1694cbef5689ca2a4ded5064eb91750#file-ffmpeg_mediametadataretriever-c
-	f, err := os.Open(file)
-	if err != nil {
-		return errors.Wrap(err, "os.Open")
+		// test pipes protocol https://gist.github.com/wseemann/b1694cbef5689ca2a4ded5064eb91750#file-ffmpeg_mediametadataretriever-c
+		f, err := os.Open(file)
+		if err != nil {
+			return errors.Wrap(err, "os.Open")
+		}
+		defer f.Close()
+		fd = f.Fd()
+	} else if request, ok := (*req).(*FDRequest); ok {
+		fd = request.FD
+	} else {
+		return fmt.Errorf("request isn't handled: %T", request) // TODO remove
 	}
-	defer f.Close()
-	fd := f.Fd()
+
 	if fd <= 0 {
 		return fmt.Errorf("fd is weird %d", fd)
 	}
-	file = fmt.Sprintf("pipe:%d", fd)
+
+	file := fmt.Sprintf("pipe:%d", fd)
 
 	pFormatContext := avformat.AvformatAllocContext()
 

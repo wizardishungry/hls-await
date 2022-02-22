@@ -80,6 +80,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 
 			var request segment.Request // TODO support passing FDs or readers directly
 			request = &segment.FilenameRequest{Filename: tmpFile.Name()}
+			request = &segment.FDRequest{FD: tmpFile.Fd()} // TODO use os.Pipe value
 
 			log.Println("processing ", tmpFile.Name())
 			s.ProcessSegment(ctx, request)

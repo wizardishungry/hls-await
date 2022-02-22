@@ -2,6 +2,7 @@ package segment
 
 import (
 	"encoding/gob"
+	"fmt"
 	"image"
 	"io"
 	"os"
@@ -18,7 +19,6 @@ type Request interface {
 var _ Request = &FilenameRequest{}
 
 type FilenameRequest struct {
-	// Segment io.Reader
 	Filename string
 }
 
@@ -33,4 +33,18 @@ type Response struct {
 
 func init() {
 	gob.Register(&FilenameRequest{})
+	gob.Register(&FDRequest{})
+}
+
+type FDRequest struct {
+	FD uintptr
+}
+
+func (fdr *FDRequest) Reader() (io.Reader, error) {
+	// TODO: DRY
+	f := os.NewFile(uintptr(fdr.FD), "unix")
+	if f == nil {
+		return nil, fmt.Errorf("nil for fd %d", fdr.FD)
+	}
+	return f, nil
 }
