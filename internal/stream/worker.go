@@ -17,7 +17,6 @@ import (
 
 const (
 	WORKER_FD = 3 + iota // stdin, stdout, stderr, ...
-	PASSFD_FDD
 )
 
 // TODO split the server implmentation off the Worker struct

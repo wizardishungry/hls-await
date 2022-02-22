@@ -46,8 +46,9 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 		}
 		segCount++
 		err = func() error {
-			log.Println("getting", tsURL.String())
-			tsResp, err := s.httpGet(ctx, tsURL.String())
+			name := tsURL.String()
+			log.Println("getting", name)
+			tsResp, err := s.httpGet(ctx, name)
 			if err != nil {
 				return errors.Wrap(err, "httpGet")
 			}
@@ -59,18 +60,19 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			default:
 			}
 
-			tmpFile, err := os.CreateTemp("", "hls-await-")
-			if err != nil {
-				return errors.Wrap(err, "os.CreateTemp")
-			}
-			defer os.Remove(tmpFile.Name())
-			defer tmpFile.Close()
-			if _, err := io.Copy(tmpFile, tsResp.Body); err != nil {
-				return errors.Wrap(err, "io.Copy")
-			}
-			if _, err = tmpFile.Seek(0, 0); err != nil {
-				return errors.Wrap(err, "tmpFile.Seek")
-			}
+			// tmpFile, err := os.CreateTemp("", "hls-await-")
+			// if err != nil {
+			// 	return errors.Wrap(err, "os.CreateTemp")
+			// }
+			// defer os.Remove(tmpFile.Name())
+			// defer tmpFile.Close()
+
+			// if _, err := io.Copy(tmpFile, tsResp.Body); err != nil {
+			// 	return errors.Wrap(err, "io.Copy")
+			// }
+			// if _, err = tmpFile.Seek(0, 0); err != nil {
+			// 	return errors.Wrap(err, "tmpFile.Seek")
+			// }
 
 			r, w, err := os.Pipe()
 			if err != nil {
@@ -78,16 +80,18 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			}
 			defer r.Close()
 			defer w.Close()
+			if _, err := io.Copy(w, tsResp.Body); err != nil {
+				return errors.Wrap(err, "io.Copy")
+			}
 			rFD := r.Fd()
-			_ = rFD
 
 			var request segment.Request // TODO support passing FDs or readers directly
-			request = &segment.FilenameRequest{Filename: tmpFile.Name()}
-			request = &segment.FDRequest{FD: tmpFile.Fd()} // TODO use os.Pipe value
+			// request = &segment.FilenameRequest{Filename: tmpFile.Name()}
+			request = &segment.FDRequest{FD: rFD} // TODO use os.Pipe value
 
-			log.Println("processing ", tmpFile.Name())
+			log.Println("processing ", name)
 			s.ProcessSegment(ctx, request)
-			log.Println("processed ", tmpFile.Name())
+			log.Println("processed ", name)
 			s.segmentMap[*tsURL] = struct{}{}
 			return nil
 		}()
