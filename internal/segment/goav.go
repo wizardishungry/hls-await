@@ -21,6 +21,7 @@ import (
 
 type GoAV struct {
 	VerboseDecoder bool
+	RecvUnixMsg    bool
 }
 
 var pngEncoder = &png.Encoder{
@@ -65,6 +66,10 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 		fd = f.Fd()
 	} else if request, ok := (*req).(*FDRequest); ok {
 		fd = request.FD
+		fmt.Println("FD IS", fd)
+		// if goav.RecvUnixMsg {
+
+		// }
 	} else {
 		return fmt.Errorf("request isn't handled: %T", request) // TODO remove
 	}

@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/unixmsg"
+	"github.com/pkg/errors"
 )
 
 const WORKER_FD = 3 // stdin, stdout, stderr, ...
@@ -62,17 +63,41 @@ func runWorker(ctx context.Context) error {
 		listener.Close()
 	}()
 
-	server := rpc.NewServer()
-	segApi := &segment.GoAV{
-		VerboseDecoder: true, // TODO pass flags
-	}
+	for ctx.Err() == nil {
+		server := rpc.NewServer()
+		segApi := &segment.GoAV{
+			VerboseDecoder: true, // TODO pass flags
+			RecvUnixMsg:    true,
+		}
 
-	err = server.Register(segApi)
-	if err != nil {
-		log.WithError(err).Fatal("server.Register")
-	}
-	server.Accept(listener)
+		err = server.Register(segApi)
+		if err != nil {
+			log.WithError(err).Fatal("server.Register")
+		}
 
+		unixConn, err := listener.Accept()
+		if err != nil {
+			return errors.Wrap(err, "listener.Accept")
+		}
+		uc := unixConn.(*net.UnixConn)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			for ctx.Err() == nil {
+
+				f, err := unixmsg.RecvFd(uc)
+
+				if err != nil {
+					log.WithError(err).Warn("unixmsg.RecvFd")
+					return
+				}
+				log.Infof("unixmsg.RecvFd: %d", f.Fd())
+				// TODO push fds into a channel
+			}
+		}()
+		server.ServeConn(unixConn)
+		wg.Wait()
+	}
 	return nil
 }
 
@@ -142,6 +167,7 @@ func (w *Worker) spawnChild(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	w.conn = conn
 
 	w.client = rpc.NewClient(conn)
 
@@ -205,6 +231,14 @@ func (w *Worker) HandleSegment(request *segment.Request, resp *segment.Response)
 		return errors.New("rpc client not set yet")
 	}
 
+	if fdr, ok := (*request).(*segment.FDRequest); ok {
+		f := os.NewFile(fdr.FD, "whatever")
+		err := unixmsg.SendFd(w.conn, f)
+		if err != nil {
+			return errors.Wrap(err, "unixmsg.SendFd")
+		}
+		log.Infof("transmit fd %d", fdr.FD)
+	}
 	err := w.client.Call("GoAV.HandleSegment", request, resp)
 	return err
 }
