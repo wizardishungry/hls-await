@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -95,10 +94,6 @@ func (s *Stream) Run(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("startChild %w", err)
 			}
-			var resp segment.Response
-			var req segment.Request = &segment.FilenameRequest{Filename: "jon"}
-			err = s.worker.HandleSegment(&req, &resp)
-			fmt.Println("dummy HandleSegment", resp.Label, len(resp.RawImages), err)
 		}
 	}
 

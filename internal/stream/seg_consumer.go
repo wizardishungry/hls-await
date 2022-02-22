@@ -82,10 +82,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 
 			rFD := r.Fd()
 
-			var request segment.Request // TODO support passing FDs or readers directly
-			// request = &segment.FilenameRequest{Filename: tmpFile.Name()}
-			request = &segment.FDRequest{FD: rFD} // TODO use os.Pipe value
-
+			var request segment.Request = &segment.FDRequest{FD: rFD}
 			err = s.ProcessSegment(ctx, request) // TODO retries?
 			processDone := time.Now().Sub(start)
 			s.segmentMap[*tsURL] = struct{}{}

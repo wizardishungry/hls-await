@@ -30,6 +30,8 @@ type Worker struct {
 	conn, connFD *net.UnixConn
 }
 
+var _ segment.Handler = &Worker{}
+
 func WithWorker(w *Worker) StreamOption {
 	return func(s *Stream) error {
 		s.worker = w
@@ -266,8 +268,7 @@ func fromFD(fd uintptr) (f *os.File, err error) {
 	return
 }
 
-var _ segment.Handler = &Worker{}
-
+// TODO: theis parent implementation
 func (w *Worker) HandleSegment(request *segment.Request, resp *segment.Response) error {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()

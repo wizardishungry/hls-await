@@ -34,10 +34,11 @@ func main() {
 		args = []string{streamURL}
 	}
 
-	worker := &stream.Worker{} // TODO: allow in process workers
+	worker := &stream.Worker{} // TODO: allow in-process workers
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	// TODO need to readd SIGUSR1 support for one shot
+	// TODO add support for hitting enter to get a screenshot
 	defer ctxCancel()
 	g, ctx := errgroup.WithContext(ctx)
 
