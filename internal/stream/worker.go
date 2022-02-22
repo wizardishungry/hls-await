@@ -15,17 +15,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-const WORKER_FD = 3 // stdin, stdout, stderr, ...
+const (
+	WORKER_FD = 3 + iota // stdin, stdout, stderr, ...
+	PASSFD_FDD
+)
 
 // TODO split the server implmentation off the Worker struct
 
 type Worker struct {
-	mutex    sync.RWMutex
-	once     sync.Once
-	cmd      *exec.Cmd
-	listener *net.UnixListener
-	client   *rpc.Client
-	conn     *net.UnixConn
+	mutex        sync.RWMutex
+	once         sync.Once
+	cmd          *exec.Cmd
+	listener     *net.UnixListener
+	client       *rpc.Client
+	conn, connFD *net.UnixConn
 }
 
 func WithWorker(w *Worker) StreamOption {
@@ -64,39 +67,72 @@ func runWorker(ctx context.Context) error {
 	}()
 
 	for ctx.Err() == nil {
-		server := rpc.NewServer()
-		segApi := &segment.GoAV{
-			VerboseDecoder: true, // TODO pass flags
-			RecvUnixMsg:    true,
-		}
+		err := func() error {
 
-		err = server.Register(segApi)
-		if err != nil {
-			log.WithError(err).Fatal("server.Register")
-		}
+			fds := make(chan uintptr)
+			defer close(fds)
 
-		unixConn, err := listener.Accept()
-		if err != nil {
-			return errors.Wrap(err, "listener.Accept")
-		}
-		uc := unixConn.(*net.UnixConn)
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			for ctx.Err() == nil {
+			var wg sync.WaitGroup
+			defer wg.Wait()
 
-				f, err := unixmsg.RecvFd(uc)
-
-				if err != nil {
-					log.WithError(err).Warn("unixmsg.RecvFd")
-					return
-				}
-				log.Infof("unixmsg.RecvFd: %d", f.Fd())
-				// TODO push fds into a channel
+			server := rpc.NewServer()
+			segApi := &segment.GoAV{
+				VerboseDecoder: true, // TODO pass flags
+				RecvUnixMsg:    true,
+				FDs:            fds,
 			}
+
+			err = server.Register(segApi)
+			if err != nil {
+				log.WithError(err).Fatal("server.Register")
+			}
+
+			conn, err := listener.Accept()
+			if err != nil {
+				return errors.Wrap(err, "apiConn = listener.Accept")
+			}
+			apiConn := conn.(*net.UnixConn)
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				server.ServeConn(apiConn)
+			}()
+
+			conn, err = listener.Accept()
+			if err != nil {
+				return errors.Wrap(err, "fdConn = listener.Accept")
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				fdConn := conn.(*net.UnixConn)
+				for ctx.Err() == nil {
+
+					f, err := unixmsg.RecvFd(fdConn)
+
+					if err != nil {
+						log.WithError(err).Warn("unixmsg.RecvFd")
+						return
+					}
+					log.Infof("unixmsg.RecvFd: %d", f.Fd())
+					// push fds into a channel, danger may deadlock
+					select {
+					case <-ctx.Done():
+						return
+					case fds <- f.Fd():
+						log.Info("name is ", f.Name())
+					}
+				}
+			}()
+
+			return nil
 		}()
-		server.ServeConn(unixConn)
-		wg.Wait()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -121,9 +157,13 @@ func (w *Worker) closeChild(ctx context.Context) error {
 	if w.conn != nil {
 		w.conn.Close()
 	}
+	if w.connFD != nil {
+		w.connFD.Close()
+	}
 	if w.listener != nil {
 		w.listener.Close()
 	}
+
 	return nil
 }
 
@@ -136,11 +176,11 @@ func (w *Worker) spawnChild(ctx context.Context) error {
 	args := append([]string{}, os.Args[1:]...)
 	args = append(args, "-worker")
 
+	// rpc
 	ul, err := net.ListenUnix("unix", &net.UnixAddr{})
 	if err != nil {
 		return err
 	}
-
 	w.listener = ul
 
 	f, err := ul.File()
@@ -168,6 +208,12 @@ func (w *Worker) spawnChild(ctx context.Context) error {
 		return err
 	}
 	w.conn = conn
+
+	conn2, err := net.DialUnix("unix", nil, ul.Addr().(*net.UnixAddr))
+	if err != nil {
+		return err
+	}
+	w.connFD = conn2
 
 	w.client = rpc.NewClient(conn)
 
@@ -233,7 +279,7 @@ func (w *Worker) HandleSegment(request *segment.Request, resp *segment.Response)
 
 	if fdr, ok := (*request).(*segment.FDRequest); ok {
 		f := os.NewFile(fdr.FD, "whatever")
-		err := unixmsg.SendFd(w.conn, f)
+		err := unixmsg.SendFd(w.connFD, f)
 		if err != nil {
 			return errors.Wrap(err, "unixmsg.SendFd")
 		}

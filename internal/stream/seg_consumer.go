@@ -68,6 +68,9 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			if _, err := io.Copy(tmpFile, tsResp.Body); err != nil {
 				return errors.Wrap(err, "io.Copy")
 			}
+			if _, err = tmpFile.Seek(0, 0); err != nil {
+				return errors.Wrap(err, "tmpFile.Seek")
+			}
 
 			r, w, err := os.Pipe()
 			if err != nil {

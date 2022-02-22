@@ -22,6 +22,7 @@ import (
 type GoAV struct {
 	VerboseDecoder bool
 	RecvUnixMsg    bool
+	FDs            <-chan uintptr
 }
 
 var pngEncoder = &png.Encoder{
@@ -67,9 +68,14 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 	} else if request, ok := (*req).(*FDRequest); ok {
 		fd = request.FD
 		fmt.Println("FD IS", fd)
-		// if goav.RecvUnixMsg {
-
-		// }
+		if goav.RecvUnixMsg {
+			var ok bool
+			fd, ok = <-goav.FDs
+			if !ok {
+				return fmt.Errorf("fd channel closed")
+			}
+			fmt.Println("goav fd is", fd)
+		}
 	} else {
 		return fmt.Errorf("request isn't handled: %T", request) // TODO remove
 	}
