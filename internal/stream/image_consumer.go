@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 	"os"
@@ -73,9 +72,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 						log.Println("IoctlGetWinsize: ", err)
 						return
 					}
-					fmt.Println(ws.Col, ws.Row)
 					ansi, err = ansimage.NewScaledFromImage(img, 8*int(ws.Col), 7*int(ws.Row), color.Black, ansimage.ScaleModeFit, ansimage.DitheringWithChars)
-					// ansi, err = ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
 					if err == nil {
 						if s.flags.Flicker {
 							log.Print("\033[H\033[2J") // flicker
