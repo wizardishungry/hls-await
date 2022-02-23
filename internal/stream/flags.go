@@ -3,6 +3,7 @@ package stream
 import (
 	"flag"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"jonwillia.ms/roku"
 )
@@ -44,6 +45,14 @@ func WithWorker(w worker.Worker) StreamOption {
 	// TODO: allow in-process workers
 	return func(s *Stream) error {
 		s.worker = w
+		return nil
+	}
+}
+
+func WithBot(b *bot.Bot) StreamOption {
+	// TODO: allow in-process workers
+	return func(s *Stream) error {
+		s.bot = b
 		return nil
 	}
 }

@@ -39,6 +39,10 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				return nil
 			}
 
+			func(img image.Image) {
+				s.bot.Chan() <- img
+			}(img)
+
 			go func(img image.Image) {
 				singleImageMutex.Lock()
 				defer singleImageMutex.Unlock()

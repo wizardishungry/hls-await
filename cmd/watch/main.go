@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/stream"
 	"github.com/sirupsen/logrus"
@@ -38,10 +39,11 @@ func main() {
 		args = []string{streamURL}
 	}
 
+	bot := bot.NewBot()
 	worker := stream.InitWorker()
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	rokuCB := roku.Run(ctx)
+	rokuCB := roku.Run(ctx) // TODO add flag
 
 	// TODO need to readd SIGUSR1 support for one shot
 	defer ctxCancel()
@@ -58,6 +60,7 @@ func main() {
 			stream.WithURL(u),
 			stream.WithWorker(worker),
 			stream.WithRokuCB(rokuCB),
+			stream.WithBot(bot),
 		)
 		if err != nil {
 			log.WithError(err).Fatal("stream.NewStream")
@@ -66,6 +69,9 @@ func main() {
 
 		g.Go(func() error {
 			return currentStream.Run(ctx)
+		})
+		g.Go(func() error {
+			return bot.Run(ctx)
 		})
 	}
 

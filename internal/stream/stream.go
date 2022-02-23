@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	my_roku "github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
@@ -68,6 +69,7 @@ type Stream struct {
 	fsm        FSM
 
 	worker worker.Worker
+	bot    *bot.Bot
 
 	client *http.Client
 }

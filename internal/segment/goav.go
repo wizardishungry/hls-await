@@ -211,8 +211,20 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 							yimg, err := old_avutil.GetPicture(tmp)
 							// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
 
+							const ( // constrain weird green box
+								Xdim = 720
+								Ydim = 576
+							)
+
+							constraint := yimg.Rect
+							if constraint.Max.X > Xdim {
+								constraint.Max.X = Xdim
+							}
+							if constraint.Max.Y > Ydim {
+								constraint.Max.Y = Ydim
+							}
 							// convert to RGBA because it serializes quickly
-							img := image.NewRGBA(yimg.Rect)
+							img := image.NewRGBA(constraint)
 							draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
 
 							if err != nil {

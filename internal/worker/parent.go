@@ -22,6 +22,8 @@ type Parent struct {
 	listener     *net.UnixListener
 	client       *rpc.Client
 	conn, connFD *net.UnixConn
+	launchCount  int
+	lastLaunch   time.Time
 }
 
 func (p *Parent) Start(ctx context.Context) error {
@@ -54,7 +56,15 @@ func (p *Parent) closeChild(ctx context.Context) error {
 	return nil
 }
 
-func (p *Parent) spawnChild(ctx context.Context) error {
+func (p *Parent) spawnChild(ctx context.Context) (err error) {
+	defer func() {
+		l := log.WithField("count", p.launchCount)
+		if !p.lastLaunch.IsZero() {
+			l = l.WithField("lifetime", time.Now().Sub(p.lastLaunch))
+		}
+		p.lastLaunch = time.Now()
+		l.WithError(err).Infof("spawnChild")
+	}()
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -87,6 +97,7 @@ func (p *Parent) spawnChild(ctx context.Context) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("couldn't spawn child: %w", err)
 	}
+	p.launchCount++
 	p.cmd = cmd
 
 	conn, err := net.DialUnix("unix", nil, ul.Addr().(*net.UnixAddr))
