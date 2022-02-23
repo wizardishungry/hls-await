@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -42,6 +43,12 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 		s.url = *u
 	}
 
+	if s.flags.Worker {
+		s.worker = &worker.Child{}
+	} else {
+		s.worker = &worker.Parent{}
+	}
+
 	return s, nil
 }
 
@@ -64,7 +71,7 @@ type Stream struct {
 	// NewStream
 	fsm FSM
 
-	worker *Worker
+	worker worker.WorkerIf
 }
 
 func newStream() *Stream {
@@ -82,19 +89,9 @@ func (s *Stream) close() error { // TODO once
 
 func (s *Stream) Run(ctx context.Context) error {
 
-	if s.worker != nil {
-		if s.flags.Worker {
-			err := s.worker.startWorker(ctx)
-			if err != nil {
-				return fmt.Errorf("runWorker %w", err)
-			}
-			return nil
-		} else {
-			err := s.worker.startChild(ctx)
-			if err != nil {
-				return fmt.Errorf("startChild %w", err)
-			}
-		}
+	err := s.worker.Start(ctx)
+	if err != nil {
+		return fmt.Errorf("StartWorker %w", err)
 	}
 
 	defer s.close()

@@ -1,6 +1,10 @@
 package stream
 
-import "flag"
+import (
+	"flag"
+
+	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
+)
 
 type flags struct {
 	URL            string
@@ -20,6 +24,21 @@ type flags struct {
 func WithFlags() StreamOption {
 	return func(s *Stream) error {
 		s.flags = someFlags
+		return nil
+	}
+}
+
+func InitWorker() worker.WorkerIf {
+	if someFlags.Worker {
+		return &worker.Child{}
+	}
+	return &worker.Parent{}
+}
+
+func WithWorker(w worker.WorkerIf) StreamOption {
+	// TODO: allow in-process workers
+	return func(s *Stream) error {
+		s.worker = w
 		return nil
 	}
 }

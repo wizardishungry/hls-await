@@ -34,7 +34,7 @@ func main() {
 		args = []string{streamURL}
 	}
 
-	worker := &stream.Worker{} // TODO: allow in-process workers
+	worker := stream.InitWorker()
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	// TODO need to readd SIGUSR1 support for one shot

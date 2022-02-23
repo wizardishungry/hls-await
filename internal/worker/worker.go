@@ -1,4 +1,4 @@
-package stream
+package worker
 
 import (
 	"context"
@@ -13,43 +13,61 @@ import (
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/unixmsg"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
+
+var log *logrus.Logger = logrus.New() // TODO move onto struct
 
 const (
 	WORKER_FD = 3 + iota // stdin, stdout, stderr, ...
 )
 
+type WorkerIf interface {
+	Start(context.Context) (err error)
+	Handler() segment.Handler
+}
+
 // TODO split the server implmentation off the Worker struct
 
 type Worker struct {
 	mutex        sync.RWMutex
-	once         sync.Once
 	cmd          *exec.Cmd
 	listener     *net.UnixListener
 	client       *rpc.Client
 	conn, connFD *net.UnixConn
 }
 
-var _ segment.Handler = &Worker{}
+var (
+	_ WorkerIf = &Parent{}
+	_ WorkerIf = &Child{}
+)
 
-func WithWorker(w *Worker) StreamOption {
-	return func(s *Stream) error {
-		s.worker = w
-		return nil
-	}
+type Parent struct {
+	once         sync.Once
+	mutex        sync.RWMutex
+	cmd          *exec.Cmd
+	listener     *net.UnixListener
+	client       *rpc.Client
+	conn, connFD *net.UnixConn
+}
+
+type Child struct {
+	once sync.Once
+}
+type common struct {
 }
 
 // startWorker runs in the child process
-func (w *Worker) startWorker(ctx context.Context) error {
+func (w *Child) Start(ctx context.Context) error {
 	var retErr error
 	w.once.Do(func() {
-		retErr = runWorker(ctx)
+		retErr = w.runWorker(ctx)
 	})
 	return retErr
 }
 
-// runWorker runs in separate process
-func runWorker(ctx context.Context) error {
+// runWorker runs in child process
+func (w *Child) runWorker(ctx context.Context) error {
 	// log = log.WithField("child", true)
 	f, err := fromFD(WORKER_FD)
 	if err != nil {
@@ -77,11 +95,8 @@ func runWorker(ctx context.Context) error {
 			defer wg.Wait()
 
 			server := rpc.NewServer()
-			segApi := &segment.GoAV{
-				VerboseDecoder: true, // TODO pass flags
-				RecvUnixMsg:    true,
-				FDs:            fds,
-			}
+			segApi := w.Handler().(*segment.GoAV)
+			segApi.FDs = fds
 
 			err = server.Register(segApi)
 			if err != nil {
@@ -138,8 +153,15 @@ func runWorker(ctx context.Context) error {
 	return nil
 }
 
-// startChild runs in the parent process
-func (w *Worker) startChild(ctx context.Context) error {
+func (w *Child) Handler() segment.Handler {
+	return &segment.GoAV{
+		VerboseDecoder: true, // TODO pass flags
+		RecvUnixMsg:    true,
+		// FDs:            fds,
+	}
+}
+
+func (w *Parent) Start(ctx context.Context) error {
 	var retErr error
 	w.once.Do(func() {
 		retErr = w.spawnChild(ctx)
@@ -150,7 +172,7 @@ func (w *Worker) startChild(ctx context.Context) error {
 	return retErr
 }
 
-func (w *Worker) closeChild(ctx context.Context) error {
+func (w *Parent) closeChild(ctx context.Context) error {
 	// PRE: must own write mutex
 	if w.client != nil {
 		w.client.Close()
@@ -168,7 +190,7 @@ func (w *Worker) closeChild(ctx context.Context) error {
 	return nil
 }
 
-func (w *Worker) spawnChild(ctx context.Context) error {
+func (w *Parent) spawnChild(ctx context.Context) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -221,7 +243,7 @@ func (w *Worker) spawnChild(ctx context.Context) error {
 	return nil
 }
 
-func (w *Worker) loop(ctx context.Context) {
+func (w *Parent) loop(ctx context.Context) {
 	defer func() {
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
@@ -268,8 +290,11 @@ func fromFD(fd uintptr) (f *os.File, err error) {
 	return
 }
 
-// TODO: theis parent implementation
-func (w *Worker) HandleSegment(request *segment.Request, resp *segment.Response) error {
+func (w *Parent) Handler() segment.Handler {
+	return w
+}
+
+func (w *Parent) HandleSegment(request *segment.Request, resp *segment.Response) error {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 

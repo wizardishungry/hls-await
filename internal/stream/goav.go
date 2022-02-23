@@ -9,12 +9,7 @@ import (
 
 func (s *Stream) ProcessSegment(ctx context.Context, request segment.Request) error {
 
-	var h segment.Handler = &segment.GoAV{
-		VerboseDecoder: s.flags.VerboseDecoder,
-	}
-	if s.worker != nil { // TODO this should be conditional, allow usage of no priv sep
-		h = s.worker
-	}
+	h := s.worker.Handler()
 
 	var resp segment.Response
 	err := h.HandleSegment(&request, &resp)

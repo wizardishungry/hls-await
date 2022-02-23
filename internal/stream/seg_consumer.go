@@ -71,18 +71,26 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			defer r.Close()
 			defer w.Close()
 
+			// i, err := unix.FcntlInt(w.Fd(), unix.F_SETPIPE_SZ, 1048576) // /proc/sys/fs/pipe-max-size
+			// if err != nil {
+			// 	log.WithError(err).Errorf("F_SETPIPE_SZ: %d", i)
+			// }
+
 			var copyDur time.Duration
 			go func() {
 				copyStart := time.Now()
 				if _, err := io.Copy(w, tsResp.Body); err != nil {
 					log.WithError(err).Warn("io.Copy")
 				}
+				w.Close()
+				// TODO: not sure we can rely on this
 				copyDur = time.Now().Sub(copyStart)
 			}()
 
 			rFD := r.Fd()
 
 			var request segment.Request = &segment.FDRequest{FD: rFD}
+
 			err = s.ProcessSegment(ctx, request) // TODO retries?
 			processDone := time.Now().Sub(start)
 			s.segmentMap[*tsURL] = struct{}{}

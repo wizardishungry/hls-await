@@ -22,7 +22,7 @@ import (
 type GoAV struct {
 	VerboseDecoder bool
 	RecvUnixMsg    bool
-	FDs            <-chan uintptr
+	FDs            chan uintptr
 }
 
 var pngEncoder = &png.Encoder{
@@ -85,6 +85,7 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 	}
 
 	file := fmt.Sprintf("pipe:%d", fd)
+	file = fmt.Sprintf("/proc/self/fd/%d", fd) // This is a Linuxism, but it works. Otherwise we get like 10% of images (30 instead of 248)
 
 	pFormatContext := avformat.AvformatAllocContext()
 
