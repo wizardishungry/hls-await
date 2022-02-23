@@ -83,7 +83,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 					log.WithError(err).Warn("io.Copy")
 				}
 				w.Close()
-				// TODO: not sure we can rely on this
+				// TODO: not sure we can rely on this (has to do with pipe ffmpeg plugin)
 				copyDur = time.Now().Sub(copyStart)
 			}()
 

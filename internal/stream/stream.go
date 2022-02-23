@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"net/http"
 	"net/url"
 	"time"
 
+	my_roku "github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"jonwillia.ms/roku"
 )
 
 var log *logrus.Logger = logrus.New() // TODO move onto struct
@@ -30,29 +34,23 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 	}
 
 	s.fsm = s.newFSM()
-	if true {
+	if !s.flags.Worker {
 		target, err := s.url.Parse("/")
 		if err != nil {
 			return nil, err
 		}
-		u, err := proxy.NewSingleHostReverseProxy(context.TODO(), target, false) //  TODO don't do this in client
+		u, err := proxy.NewSingleHostReverseProxy(context.TODO(), target, false)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NewSingleHostReverseProxy")
 		}
 		u.Path = s.url.Path
-		s.url = *u
+		s.url = u
 	}
-
-	// if s.flags.Worker {
-	// 	s.worker = &worker.Child{}
-	// } else {
-	// 	s.worker = &worker.Parent{}
-	// }
 
 	return s, nil
 }
 
-func WithURL(u url.URL) StreamOption {
+func WithURL(u *url.URL) StreamOption {
 	return func(s *Stream) error {
 		s.url = u
 		return nil
@@ -60,26 +58,28 @@ func WithURL(u url.URL) StreamOption {
 }
 
 type Stream struct {
-	// StreamOptions
-	url url.URL
-	// newStream
+	rokuCB        func() (*roku.Remote, error)
+	url, proxyURL *url.URL
+
 	oneShot    chan struct{}
 	imageChan  chan image.Image
 	flags      *flags
 	segmentMap map[url.URL]struct{}
-
-	// NewStream
-	fsm FSM
+	fsm        FSM
 
 	worker worker.Worker
+
+	client *http.Client
 }
 
 func newStream() *Stream {
-	return &Stream{
+	s := &Stream{
 		oneShot:    make(chan struct{}, 1),
 		imageChan:  make(chan image.Image, 100), // TODO magic size
 		segmentMap: make(map[url.URL]struct{}),
 	}
+	s.client = s.NewHttpClient()
+	return s
 }
 func (s *Stream) close() error { // TODO once
 	close(s.oneShot)
@@ -90,7 +90,7 @@ func (s *Stream) OneShot() chan<- struct{} { return s.oneShot }
 
 func (s *Stream) Run(ctx context.Context) error {
 
-	err := s.worker.Start(ctx)
+	err := s.worker.Start(ctx) // TODO inject http proxy
 	if err != nil {
 		return fmt.Errorf("%T.Start %w", s.worker, err)
 	}
@@ -103,7 +103,7 @@ func (s *Stream) Run(ctx context.Context) error {
 	pollDuration := minPollDuration
 	for {
 		start := time.Now()
-		mediapl, err := s.doPlaylist(ctx, &s.url)
+		mediapl, err := s.doPlaylist(ctx, s.url)
 		if err != nil {
 			log.Println("doPlaylist", err)
 			pollDuration = minPollDuration
@@ -142,4 +142,16 @@ func (s *Stream) Run(ctx context.Context) error {
 		case <-timer.C:
 		}
 	}
+}
+
+func (s *Stream) LaunchRoku() error {
+	remote, err := s.RokuCB()
+	if err != nil {
+		return err
+	}
+	return my_roku.On(remote, s.url.String())
+}
+
+func (s *Stream) RokuCB() (*roku.Remote, error) {
+	return s.rokuCB()
 }

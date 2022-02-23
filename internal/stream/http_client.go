@@ -6,21 +6,8 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httputil"
+	"net/url"
 )
-
-var client *http.Client
-
-func init() {
-	var err error
-	client = &http.Client{}
-	client.Jar, err = cookiejar.New(nil)
-	if err != nil {
-		log.WithError(err).Fatal("http client init")
-	}
-
-}
-
-var flagDumpHttp = true
 
 func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -34,7 +21,6 @@ func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error
 	req.Header.Set("Accept-Encoding", "identity")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15")
 	// req.Header.Set("X-Playback-Session-Id", "F896728B-8636-4BB1-B4FF-1B235EB4ED9E")
-
 	var reqStr string
 	if s.flags.DumpHttp {
 		if s, err := httputil.DumpRequest(req, false); err != nil {
@@ -44,7 +30,7 @@ func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error
 		}
 	}
 
-	resp, err := client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -61,4 +47,24 @@ func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error
 	}
 
 	return resp, err
+}
+
+func (s *Stream) NewHttpClient() *http.Client {
+	var err error
+	client := *http.DefaultClient
+	client.Jar, err = cookiejar.New(nil)
+	if err != nil {
+		log.WithError(err).Fatal("http client init")
+	}
+	transport := *(http.DefaultTransport.(*http.Transport))
+	defProxy := transport.Proxy
+	transport.Proxy = func(r *http.Request) (*url.URL, error) {
+
+		if s.proxyURL != nil {
+			return s.proxyURL, nil
+		}
+		return defProxy(r)
+	}
+	client.Transport = &transport
+	return &client
 }

@@ -17,15 +17,18 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sys v0.0.0-20220222200937-f2425489ef4c
+	jonwillia.ms/roku v1.3.2
 )
 
 require (
 	github.com/disintegration/imaging v1.6.2 // indirect
+	github.com/koron/go-ssdp v0.0.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/soniakeys/quant v1.0.0 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/image v0.0.0-20210504121937-7319ad40d33e // indirect
-	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654 // indirect
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 )

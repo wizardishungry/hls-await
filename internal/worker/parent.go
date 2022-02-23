@@ -25,6 +25,7 @@ type Parent struct {
 }
 
 func (p *Parent) Start(ctx context.Context) error {
+
 	var retErr error
 	p.once.Do(func() {
 		retErr = p.spawnChild(ctx)

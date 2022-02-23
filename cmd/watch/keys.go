@@ -23,6 +23,7 @@ func scanKeys(ctx context.Context) {
 		}
 		h, ok := keyMap[r]
 		if !ok {
+			fmt.Printf("unknown key %d, %s\n", r, string(r))
 			continue
 		}
 		h.cb(ctx)
@@ -48,6 +49,18 @@ func init() {
 				fmt.Println(currentStream.GetFSM().Current())
 			},
 			desc: "Get current state",
+		},
+		'r': {
+			cb: func(c context.Context) {
+				fmt.Println("roku launch")
+				err := currentStream.LaunchRoku()
+				if err != nil {
+					fmt.Println("roku error", err)
+				} else {
+					fmt.Println("roku launched")
+				}
+			},
+			desc: "Launch Stream in Roku Stream Tester",
 		},
 		'?': {
 			desc: "Help",

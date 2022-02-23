@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
+	"jonwillia.ms/roku"
 )
 
 type flags struct {
@@ -43,6 +44,13 @@ func WithWorker(w worker.Worker) StreamOption {
 	// TODO: allow in-process workers
 	return func(s *Stream) error {
 		s.worker = w
+		return nil
+	}
+}
+
+func WithRokuCB(rokuCB func() (*roku.Remote, error)) StreamOption {
+	return func(s *Stream) error {
+		s.rokuCB = rokuCB
 		return nil
 	}
 }

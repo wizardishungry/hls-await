@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/stream"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -40,8 +41,9 @@ func main() {
 	worker := stream.InitWorker()
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	rokuCB := roku.Run(ctx)
+
 	// TODO need to readd SIGUSR1 support for one shot
-	// TODO add support for hitting enter to get a screenshot
 	defer ctxCancel()
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -53,8 +55,9 @@ func main() {
 		}
 		currentStream, err = stream.NewStream(
 			stream.WithFlags(),
-			stream.WithURL(*u),
+			stream.WithURL(u),
 			stream.WithWorker(worker),
+			stream.WithRokuCB(rokuCB),
 		)
 		if err != nil {
 			log.WithError(err).Fatal("stream.NewStream")

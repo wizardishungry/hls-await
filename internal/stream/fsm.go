@@ -62,7 +62,7 @@ func (s *Stream) newFSM() FSM {
 						}()
 
 						f := &bytes.Buffer{}
-						err := png.Encode(f, img) // TODO double encode
+						err := png.Encode(f, img)
 						if err != nil {
 							log.Println("png.Encode", err)
 						}
