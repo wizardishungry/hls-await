@@ -21,7 +21,7 @@ import (
 
 type GoAV struct {
 	VerboseDecoder bool
-	RecvUnixMsg    bool
+	RecvUnixMsg    bool // use a secondary unix socket to receive file descriptors in priv sep mode
 	FDs            chan uintptr
 }
 

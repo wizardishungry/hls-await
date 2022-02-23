@@ -117,7 +117,6 @@ func (w *Child) Handler() segment.Handler {
 	return &segment.GoAV{
 		VerboseDecoder: true, // TODO pass flags
 		RecvUnixMsg:    true,
-		// FDs:            fds,
 	}
 }
 

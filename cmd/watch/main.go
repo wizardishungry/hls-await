@@ -45,8 +45,8 @@ func main() {
 	for _, arg := range args {
 
 		u, err := url.Parse(arg)
-		if err != nil {
-			log.Fatal(err)
+		if err != nil || u.Scheme == "" {
+			log.WithError(err).Fatalf("url.Parse: %s", arg)
 		}
 		s, err := stream.NewStream(
 			stream.WithFlags(),

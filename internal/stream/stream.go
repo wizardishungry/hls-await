@@ -43,11 +43,11 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 		s.url = *u
 	}
 
-	if s.flags.Worker {
-		s.worker = &worker.Child{}
-	} else {
-		s.worker = &worker.Parent{}
-	}
+	// if s.flags.Worker {
+	// 	s.worker = &worker.Child{}
+	// } else {
+	// 	s.worker = &worker.Parent{}
+	// }
 
 	return s, nil
 }
@@ -71,7 +71,7 @@ type Stream struct {
 	// NewStream
 	fsm FSM
 
-	worker worker.WorkerIf
+	worker worker.Worker
 }
 
 func newStream() *Stream {
@@ -91,7 +91,7 @@ func (s *Stream) Run(ctx context.Context) error {
 
 	err := s.worker.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("StartWorker %w", err)
+		return fmt.Errorf("%T.Start %w", s.worker, err)
 	}
 
 	defer s.close()

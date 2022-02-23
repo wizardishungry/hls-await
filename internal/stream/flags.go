@@ -18,7 +18,8 @@ type flags struct {
 	DumpFSM        bool
 	OneShot        bool
 	Sixel          bool
-	Worker         bool // used for running the CGO stuff in a dedicated routine
+	Worker         bool
+	Privsep        bool
 }
 
 func WithFlags() StreamOption {
@@ -28,14 +29,17 @@ func WithFlags() StreamOption {
 	}
 }
 
-func InitWorker() worker.WorkerIf {
+func InitWorker() worker.Worker {
 	if someFlags.Worker {
 		return &worker.Child{}
+	}
+	if !someFlags.Privsep {
+		return &worker.InProcess{}
 	}
 	return &worker.Parent{}
 }
 
-func WithWorker(w worker.WorkerIf) StreamOption {
+func WithWorker(w worker.Worker) StreamOption {
 	// TODO: allow in-process workers
 	return func(s *Stream) error {
 		s.worker = w
@@ -56,6 +60,7 @@ func getFlags() *flags {
 	flag.BoolVar(&f.OneShot, "one-shot", true, "render an ansi frame when entering up state")
 	flag.BoolVar(&f.Sixel, "sixel", false, "output ansi images as sixels")
 	flag.BoolVar(&f.Worker, "worker", false, "used by process separation, not for end user use")
+	flag.BoolVar(&f.Privsep, "privsep", true, "enable process separation")
 	return &f
 }
 
