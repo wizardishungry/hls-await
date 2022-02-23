@@ -24,40 +24,40 @@ type Parent struct {
 	conn, connFD *net.UnixConn
 }
 
-func (w *Parent) Start(ctx context.Context) error {
+func (p *Parent) Start(ctx context.Context) error {
 	var retErr error
-	w.once.Do(func() {
-		retErr = w.spawnChild(ctx)
+	p.once.Do(func() {
+		retErr = p.spawnChild(ctx)
 		if retErr == nil {
-			go w.loop(ctx)
+			go p.loop(ctx)
 		}
 	})
 	return retErr
 }
 
-func (w *Parent) closeChild(ctx context.Context) error {
+func (p *Parent) closeChild(ctx context.Context) error {
 	// PRE: must own write mutex
-	if w.client != nil {
-		w.client.Close()
+	if p.client != nil {
+		p.client.Close()
 	}
-	if w.conn != nil {
-		w.conn.Close()
+	if p.conn != nil {
+		p.conn.Close()
 	}
-	if w.connFD != nil {
-		w.connFD.Close()
+	if p.connFD != nil {
+		p.connFD.Close()
 	}
-	if w.listener != nil {
-		w.listener.Close()
+	if p.listener != nil {
+		p.listener.Close()
 	}
 
 	return nil
 }
 
-func (w *Parent) spawnChild(ctx context.Context) error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+func (p *Parent) spawnChild(ctx context.Context) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
-	w.closeChild(ctx)
+	p.closeChild(ctx)
 
 	args := append([]string{}, os.Args[1:]...)
 	args = append(args, "-worker")
@@ -67,7 +67,7 @@ func (w *Parent) spawnChild(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	w.listener = ul
+	p.listener = ul
 
 	f, err := ul.File()
 	if err != nil {
@@ -75,7 +75,6 @@ func (w *Parent) spawnChild(ctx context.Context) error {
 	}
 
 	cmd := exec.CommandContext(ctx, os.Args[0], args...)
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -87,47 +86,47 @@ func (w *Parent) spawnChild(ctx context.Context) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("couldn't spawn child: %w", err)
 	}
-	w.cmd = cmd
+	p.cmd = cmd
 
 	conn, err := net.DialUnix("unix", nil, ul.Addr().(*net.UnixAddr))
 	if err != nil {
 		return err
 	}
-	w.conn = conn
+	p.conn = conn
 
 	conn2, err := net.DialUnix("unix", nil, ul.Addr().(*net.UnixAddr))
 	if err != nil {
 		return err
 	}
-	w.connFD = conn2
+	p.connFD = conn2
 
-	w.client = rpc.NewClient(conn)
+	p.client = rpc.NewClient(conn)
 
 	return nil
 }
 
-func (w *Parent) loop(ctx context.Context) {
+func (p *Parent) loop(ctx context.Context) {
 	defer func() {
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		if w.cmd != nil {
-			w.cmd.Wait()
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+		if p.cmd != nil {
+			p.cmd.Wait()
 		}
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		w.closeChild(ctx)
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+		p.closeChild(ctx)
 	}()
 	for ctx.Err() == nil {
-		w.mutex.RLock()
-		cmd := w.cmd
-		w.mutex.RUnlock()
+		p.mutex.RLock()
+		cmd := p.cmd
+		p.mutex.RUnlock()
 		err := cmd.Wait()
 		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 			break
 		}
 
-		log.WithError(err).WithField("exit_code", w.cmd.ProcessState.ExitCode()).Info("respawning child process")
-		err = w.spawnChild(ctx)
+		log.WithError(err).WithField("exit_code", p.cmd.ProcessState.ExitCode()).Info("respawning child process")
+		err = p.spawnChild(ctx)
 		if err != nil {
 			log.WithError(err).Error("spawn loop")
 			time.Sleep(time.Second) // TODO change to backoff

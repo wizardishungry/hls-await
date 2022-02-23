@@ -86,6 +86,7 @@ func (s *Stream) close() error { // TODO once
 	close(s.imageChan)
 	return nil
 }
+func (s *Stream) OneShot() chan<- struct{} { return s.oneShot }
 
 func (s *Stream) Run(ctx context.Context) error {
 

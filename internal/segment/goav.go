@@ -45,15 +45,7 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 	var fd uintptr
 
 	if request, ok := (*req).(*FilenameRequest); ok {
-		if request.Filename == "jon" {
-			resp = &Response{}
-			resp.RawImages = []*image.RGBA{
-				image.NewRGBA(image.Rect(0, 0, 100, 100)),
-			}
-			resp.Label = "ok"
-			return nil
-			return errors.New("jon rules")
-		}
+
 		var (
 			file = request.Filename
 		)
@@ -67,14 +59,12 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 		fd = f.Fd()
 	} else if request, ok := (*req).(*FDRequest); ok {
 		fd = request.FD
-		fmt.Println("FD IS", fd)
 		if goav.RecvUnixMsg {
 			var ok bool
 			fd, ok = <-goav.FDs
 			if !ok {
 				return fmt.Errorf("fd channel closed")
 			}
-			fmt.Println("goav fd is", fd)
 		}
 	} else {
 		return fmt.Errorf("request isn't handled: %T", request) // TODO remove

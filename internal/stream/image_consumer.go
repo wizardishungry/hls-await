@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/mattn/go-sixel"
+	"golang.org/x/sys/unix"
 )
 
 const goimagehashDim = 16 // should be power of 2, color bars show noise at 16
@@ -66,7 +68,14 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				} else {
 					var ansi *ansimage.ANSImage
 
-					ansi, err = ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
+					ws, wsErr := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
+					if wsErr != nil {
+						log.Println("IoctlGetWinsize: ", err)
+						return
+					}
+					fmt.Println(ws.Col, ws.Row)
+					ansi, err = ansimage.NewScaledFromImage(img, 8*int(ws.Col), 7*int(ws.Row), color.Black, ansimage.ScaleModeFit, ansimage.DitheringWithChars)
+					// ansi, err = ansimage.NewFromImage(img, color.Black, ansimage.DitheringWithChars)
 					if err == nil {
 						if s.flags.Flicker {
 							log.Print("\033[H\033[2J") // flicker

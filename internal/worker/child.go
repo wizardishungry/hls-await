@@ -17,17 +17,15 @@ type Child struct {
 	once sync.Once
 }
 
-// startWorker runs in the child process
-func (w *Child) Start(ctx context.Context) error {
+func (c *Child) Start(ctx context.Context) error {
 	var retErr error
-	w.once.Do(func() { // This should always error out
-		retErr = w.runWorker(ctx)
+	c.once.Do(func() { // This should block and then error out
+		retErr = c.runWorker(ctx)
 	})
 	return retErr
 }
 
-// runWorker runs in child process
-func (w *Child) runWorker(ctx context.Context) error {
+func (c *Child) runWorker(ctx context.Context) error {
 	// log = log.WithField("child", true)
 	f, err := fromFD(WORKER_FD)
 	if err != nil {
@@ -55,7 +53,7 @@ func (w *Child) runWorker(ctx context.Context) error {
 			defer wg.Wait()
 
 			server := rpc.NewServer()
-			segApi := w.Handler().(*segment.GoAV)
+			segApi := c.Handler().(*segment.GoAV)
 			segApi.FDs = fds
 
 			err = server.Register(segApi)
@@ -113,7 +111,7 @@ func (w *Child) runWorker(ctx context.Context) error {
 	return nil
 }
 
-func (w *Child) Handler() segment.Handler {
+func (c *Child) Handler() segment.Handler {
 	return &segment.GoAV{
 		VerboseDecoder: true, // TODO pass flags
 		RecvUnixMsg:    true,

@@ -15,7 +15,10 @@ import (
 
 const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
 
-var log = logrus.New()
+var (
+	log           = logrus.New()
+	currentStream *stream.Stream
+)
 
 func main() {
 	flag.Parse()
@@ -48,7 +51,7 @@ func main() {
 		if err != nil || u.Scheme == "" {
 			log.WithError(err).Fatalf("url.Parse: %s", arg)
 		}
-		s, err := stream.NewStream(
+		currentStream, err = stream.NewStream(
 			stream.WithFlags(),
 			stream.WithURL(*u),
 			stream.WithWorker(worker),
@@ -59,9 +62,11 @@ func main() {
 		log.Infof("monitoring %+v", u)
 
 		g.Go(func() error {
-			return s.Run(ctx)
+			return currentStream.Run(ctx)
 		})
 	}
+
+	go scanKeys(ctx)
 
 	if err := g.Wait(); err != nil {
 		log.Error(err)
