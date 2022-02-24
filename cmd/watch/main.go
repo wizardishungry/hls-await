@@ -42,9 +42,13 @@ func main() {
 	g, ctx := errgroup.WithContext(ctx)
 
 	if _, ok := w.(*worker.Child); !ok { // FIXME hacky
-		g.Go(func() error {
-			return b.Run(ctx)
-		})
+		if b != nil {
+			g.Go(func() error {
+				return b.Run(ctx)
+			})
+		} else {
+			log.Warn("twitter unconfigured")
+		}
 	}
 
 	for _, arg := range args {

@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/charlestamz/goav/swscale"
 	old_avutil "github.com/giorgisio/goav/avutil"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type GoAV struct {
@@ -28,6 +28,7 @@ type GoAV struct {
 var pngEncoder = &png.Encoder{
 	CompressionLevel: png.NoCompression,
 }
+var log *logrus.Logger = logrus.New() // TODO move onto struct
 
 var _ Handler = &GoAV{}
 
@@ -184,54 +185,55 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 						if response == avutil.AVERROR_EAGAIN || response == avutil.AVERROR_EOF {
 							break
 						} else if response < 0 {
-							//log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
+							log.WithError(goavError(response)).Warn("Error while receiving a frame from the decoder")
 							// return
 							time.Sleep(time.Millisecond) // only seen as helpful on linux
 							continue
 						}
 
-						if true || frameNumber <= 5000000000000000000 { // TODO remove
-							// Convert the image from its native format to RGB
-							data := (*[8]*uint8)(unsafe.Pointer(pFrame.DataItem(0)))
-							lineSize := (*[8]int32)(unsafe.Pointer(pFrame.LinesizePtr()))
-							dataDst := (*[8]*uint8)(unsafe.Pointer(pFrameRGB.DataItem(0)))
-							lineSizeDst := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
+						// TODO do we really need every frame from a segment
+						// We could get a fraction but we would have to figure those into the twitter bot's calculations
+						// This would lower memory usage and the response size (248 raw RGB frames is a lot)
+						// 			pFormatContext.Streams()[i].NbFrames()
 
-							response := swscale.SwsScale(swsCtx, *data,
-								*lineSize, 0, 0,
-								*dataDst, *lineSizeDst)
-							if response < 0 {
-								return errors.Wrap(goavError(response), "error while SwsScale")
-							}
+						// Convert the image from its native format to RGB
+						data := (*[8]*uint8)(unsafe.Pointer(pFrame.DataItem(0)))
+						lineSize := (*[8]int32)(unsafe.Pointer(pFrame.LinesizePtr()))
+						dataDst := (*[8]*uint8)(unsafe.Pointer(pFrameRGB.DataItem(0)))
+						lineSizeDst := (*[8]int32)(unsafe.Pointer(pFrameRGB.LinesizePtr()))
 
-							// Save the frame to disk
-							// log.Printf("Writing frame %d\n", frameNumber)
-							//SaveFrame(pFrameRGB, pCodecCtx.Width(), pCodecCtx.Height(), frameNumber)
-							tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
-							yimg, err := old_avutil.GetPicture(tmp)
-							// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
-
-							const ( // constrain weird green box
-								Xdim = 720
-								Ydim = 576
-							)
-
-							constraint := yimg.Rect
-							if constraint.Max.X > Xdim {
-								constraint.Max.X = Xdim
-							}
-							if constraint.Max.Y > Ydim {
-								constraint.Max.Y = Ydim
-							}
-							// convert to RGBA because it serializes quickly
-							img := image.NewRGBA(constraint)
-							draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
-
-							if err != nil {
-								return errors.Wrap(err, "GetPicture")
-							}
-							resp.RawImages = append(resp.RawImages, img)
+						response := swscale.SwsScale(swsCtx, *data,
+							*lineSize, 0, 0,
+							*dataDst, *lineSizeDst)
+						if response < 0 {
+							return errors.Wrap(goavError(response), "error while SwsScale")
 						}
+
+						tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
+						yimg, err := old_avutil.GetPicture(tmp)
+						// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
+
+						const ( // constrain weird green box
+							Xdim = 720
+							Ydim = 576
+						)
+
+						constraint := yimg.Rect
+						if constraint.Max.X > Xdim {
+							constraint.Max.X = Xdim
+						}
+						if constraint.Max.Y > Ydim {
+							constraint.Max.Y = Ydim
+						}
+						// convert to RGBA because it serializes quickly
+						img := image.NewRGBA(constraint)
+						draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
+
+						if err != nil {
+							return errors.Wrap(err, "GetPicture")
+						}
+						resp.RawImages = append(resp.RawImages, img)
+
 						frameNumber++
 					}
 				}

@@ -5,6 +5,8 @@ import (
 	"context"
 	"image"
 	"image/png"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/dghubble/go-twitter/twitter"
@@ -30,8 +32,16 @@ const (
 	replyWindow           = 3 * updateInterval
 )
 
+var (
+	_, b, _, _ = runtime.Caller(0)
+
+	// root folder of this project
+	root = filepath.Join(filepath.Dir(b), "../..")
+)
+
 func newClient() *twitter.Client {
-	myEnv, err := godotenv.Read()
+	path := root + "/.env"
+	myEnv, err := godotenv.Read(path)
 	if err != nil {
 		panic(err)
 	}
@@ -40,10 +50,13 @@ func newClient() *twitter.Client {
 	consumerSecret := myEnv["TWITTER_CONSUMER_SECRET"]
 	accessToken := myEnv["TWITTER_ACCESS_TOKEN"]
 	accessSecret := myEnv["TWITTER_ACCESS_SECRET"]
+	if accessSecret == "" {
+		return nil
+	}
 
 	config := oauth1.NewConfig(consumerKey, consumerSecret)
 	token := oauth1.NewToken(accessToken, accessSecret)
-	httpClient := config.Client(oauth1.NoContext, token)
+	httpClient := config.Client(oauth1.NoContext, token) // TODO use a real context?
 
 	return twitter.NewClient(httpClient)
 }
@@ -57,15 +70,20 @@ type Bot struct {
 }
 
 func NewBot() *Bot {
-	return &Bot{
+	b := &Bot{
 		client: newClient(),
 		c:      make(chan image.Image, 100), // TODO magic number
 		images: make([]image.Image, 0, maxQueuedImages),
 	}
+	if b.client == nil {
+		return nil
+	}
+	return b
 }
 
 func (b *Bot) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
+	b.getLastTweetMaybe()
 	g.Go(func() error { return b.consumeImages(ctx) })
 	return g.Wait()
 }

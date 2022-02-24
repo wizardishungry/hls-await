@@ -3,7 +3,6 @@ package segment
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"image"
 	"testing"
 )
@@ -22,5 +21,4 @@ func TestGobEnc(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dec %v", err)
 	}
-	fmt.Println(q)
 }

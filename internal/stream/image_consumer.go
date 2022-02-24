@@ -130,7 +130,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 			}(img)
 
 			func(img image.Image) {
-				if atomic.LoadInt32(&s.sendToBot) != 0 {
+				if atomic.LoadInt32(&s.sendToBot) != 0 && s.bot != nil {
 					s.bot.Chan() <- img
 				}
 			}(img)
