@@ -10,14 +10,14 @@ import (
 
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
-	"github.com/mattn/go-sixel"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
 
 const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
 var (                    // TODO move into struct
 	firstHash          *goimagehash.ExtImageHash
-	firstHashAvg       *goimagehash.ImageHash
 	globalFrameCounter int
 	singleImage        image.Image
 	singleImageMutex   sync.Mutex
@@ -35,106 +35,78 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				oneShot = true
 				log.Println("photo time!")
 			}
-		case img := <-s.imageChan:
-			if img == nil {
-				return nil
+		case i := <-s.imageChan:
+			img := i // shadow?
+			g, _ := errgroup.WithContext(ctx)
+
+			{ // not currently used
+				singleImageMutex.Lock()
+				singleImage = img
+				singleImageMutex.Unlock()
 			}
 
-			go func(img image.Image) {
-				singleImageMutex.Lock()
-				defer singleImageMutex.Unlock()
-				singleImage = img
-			}(img)
-
-			func(img image.Image) {
+			g.Go(func() error {
 				if oneShot {
 					oneShot = false
 					goto CLICK
 
 				}
 				if s.flags.AnsiArt == 0 {
-					return
+					return nil
 				}
 				if globalFrameCounter%s.flags.AnsiArt != 0 {
-					return
+					return nil
 				}
 			CLICK:
-				var err error
-				if s.flags.Sixel {
-					if s.flags.Flicker {
-						log.Print("\033[H\033[2J") // flicker
-					}
-					err = sixel.NewEncoder(os.Stdout).Encode(img)
-				} else {
-					var ansi *ansimage.ANSImage
 
-					ws, wsErr := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
-					if wsErr != nil {
-						log.Println("IoctlGetWinsize: ", err)
-						return
-					}
-					ansi, err = ansimage.NewScaledFromImage(img, 8*int(ws.Col), 7*int(ws.Row), color.Black, ansimage.ScaleModeFit, ansimage.DitheringWithChars)
-					if err == nil {
-						if s.flags.Flicker {
-							log.Print("\033[H\033[2J") // flicker
-						}
-						ansi.Draw()
-					}
-				}
+				ws, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
 				if err != nil {
-					log.Println("ansi render err", err)
+					return errors.Wrap(err, "unix.IoctlGetWinsize")
 				}
-			}(img)
-			func(img image.Image) {
+				ansi, err := ansimage.NewScaledFromImage(img, 8*int(ws.Col), 7*int(ws.Row), color.Black, ansimage.ScaleModeFit, ansimage.DitheringWithChars)
+				if err != nil {
+					return errors.Wrap(err, "ansimage.NewScaledFromImage")
+				}
+				if s.flags.Flicker {
+					// TODO this is unimpressive now that images are fractioned
+					log.Print("\033[H\033[2J") // flicker
+				}
+				ansi.Draw()
+
+				return nil
+			})
+
+			g.Go(func() error {
 				hash, err := goimagehash.ExtPerceptionHash(img, goimagehashDim, goimagehashDim)
 				if err != nil {
-					log.Println("consumeImages: ExtPerceptionHash error", err)
-					return
+					return errors.Wrap(err, "ExtPerceptionHash error")
 				}
 				if firstHash == nil {
 					firstHash = hash
-					return
+					return nil
 				}
 				distance, err := firstHash.Distance(hash)
 				if err != nil {
-					log.Println("consumeImages: ExtPerceptionHash Distance error", err)
-					return
+					return errors.Wrap(err, "ExtPerceptionHash Distance error")
 				}
 				if distance >= s.flags.Threshold {
-					log.Printf("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold) // TODO convert to "verbose"
+					log.Infof("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold) // TODO convert to "verbose"
 					firstHash = hash
 					s.pushEvent("unsteady")
 				} else {
 					s.pushEvent("steady")
 				}
-			}(img)
-			func(img image.Image) {
-				return // skip superfluous hashing. TODO: move hashes to helper
-				hash, err := goimagehash.AverageHash(img)
-				if err != nil {
-					log.Println("consumeImages: AverageHash error", err)
-					return
-				}
-				if firstHashAvg == nil {
-					firstHashAvg = hash
-					return
-				}
-				distance, err := firstHashAvg.Distance(hash)
-				if err != nil {
-					log.Println("consumeImages: AverageHash Distance error", err)
-					return
-				}
-				if distance >= s.flags.Threshold {
-					firstHashAvg = hash
-					// log.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
-				}
-			}(img)
+				return nil
+			})
 
-			func(img image.Image) {
-				if atomic.LoadInt32(&s.sendToBot) != 0 && s.bot != nil {
-					s.bot.Chan() <- img
-				}
-			}(img)
+			err := g.Wait()
+			if err != nil {
+				log.WithError(err).Warn("consumeImages")
+			}
+
+			if atomic.LoadInt32(&s.sendToBot) != 0 && s.bot != nil {
+				s.bot.Chan() <- img
+			}
 
 			globalFrameCounter++
 		}

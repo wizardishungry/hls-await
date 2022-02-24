@@ -15,7 +15,6 @@ type flags struct {
 	FastResume     bool
 	DumpFSM        bool
 	OneShot        bool
-	Sixel          bool
 	Worker         bool
 	Privsep        bool
 }
@@ -39,7 +38,6 @@ func getFlags() *flags {
 	flag.BoolVar(&f.FastResume, "fast-resume", true, "if we see a bunch of new segments, behave like fast start")
 	flag.BoolVar(&f.DumpFSM, "dump-fsm", false, "write graphviz src and exit")
 	flag.BoolVar(&f.OneShot, "one-shot", true, "render an ansi frame when entering up state")
-	flag.BoolVar(&f.Sixel, "sixel", false, "output ansi images as sixels")
 	flag.BoolVar(&f.Worker, "worker", false, "used by process separation, not for end user use")
 	flag.BoolVar(&f.Privsep, "privsep", true, "enable process separation")
 	return &f
