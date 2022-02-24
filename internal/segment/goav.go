@@ -43,7 +43,7 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
-		// go func() {
+		// go func() { // put this in here to test ffmpeg crases
 		// 	time.Sleep(10 * time.Second)
 		// 	panic("test restarting")
 		// }()
@@ -73,15 +73,15 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 			}
 		}
 	} else {
-		return fmt.Errorf("request isn't handled: %T", request) // TODO remove
+		return fmt.Errorf("request type isn't handled: %T", request) // TODO remove
 	}
 
 	if fd <= 0 {
 		return fmt.Errorf("fd is weird %d", fd)
 	}
 
-	file := fmt.Sprintf("pipe:%d", fd)
-	file = fmt.Sprintf("/proc/self/fd/%d", fd) // This is a Linuxism, but it works. Otherwise we get like 10% of images (30 instead of 248)
+	// file := fmt.Sprintf("pipe:%d", fd)
+	file := fmt.Sprintf("/proc/self/fd/%d", fd) // This is a Linuxism, but it works. Otherwise we get like 10% of images (30 instead of 248)
 
 	pFormatContext := avformat.AvformatAllocContext()
 
@@ -190,16 +190,12 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 							break
 						} else if response < 0 {
 							log.WithError(goavError(response)).Warn("Error while receiving a frame from the decoder")
-							// return
 							time.Sleep(time.Millisecond) // only seen as helpful on linux
 							continue
 						}
 
-						// TODO do we really need every frame from a segment
-						// We could get a fraction but we would have to figure those into the twitter bot's calculations
-						// This would lower memory usage and the response size (248 raw RGB frames is a lot)
-						// pFormatContext.Streams()[i].NbFrames() returns 0
-						// TODO: everything below this could be skipped
+						// TODO: everything below this could be skipped if we could get the count ahead of time
+						// pFormatContext.Streams()[i].NbFrames() returns 0 unfortunately
 
 						// Convert the image from its native format to RGB
 						data := (*[8]*uint8)(unsafe.Pointer(pFrame.DataItem(0)))
@@ -215,11 +211,11 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 						}
 
 						tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
+						// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
 						yimg, err := old_avutil.GetPicture(tmp)
 						if err != nil {
 							return errors.Wrap(err, "GetPicture")
 						}
-						// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
 
 						const ( // constrain weird green box
 							Xdim = 720
@@ -233,8 +229,8 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 						if constraint.Max.Y > Ydim {
 							constraint.Max.Y = Ydim
 						}
-						// convert to RGBA because it serializes quickly
-						img := image.NewRGBA(constraint) // TODO no need to do this when running in-process
+						// convert to RGBA because it serializes easily
+						img := image.NewRGBA(constraint) // TODO: no need to convert to RGBA when running in-process (is there a way to crop with a zero copy?)
 						draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
 
 						resp.RawImages = append(resp.RawImages, img)
@@ -265,7 +261,7 @@ func fractionImages(resp *Response, err error) {
 			return
 		}
 		mod := int(float64(initLen) / limitImageCount)
-		newImages := make([]*image.RGBA, 0, int(limitImageCount))
+		newImages := make([]image.Image, 0, int(limitImageCount))
 		for i, img := range resp.RawImages {
 			if i%mod == 0 {
 				newImages = append(newImages, img)

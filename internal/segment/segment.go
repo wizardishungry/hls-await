@@ -28,12 +28,13 @@ func (fr *FilenameRequest) Reader() (io.Reader, error) {
 
 type Response struct {
 	Label     string
-	RawImages []*image.RGBA // TODO change back to image.Image an only conditionally convert to image.RGBA if using privsep
+	RawImages []image.Image
 }
 
 func init() {
 	gob.Register(&FilenameRequest{})
 	gob.Register(&FDRequest{})
+	gob.Register(&image.RGBA{})
 }
 
 type FDRequest struct {
