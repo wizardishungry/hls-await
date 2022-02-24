@@ -19,7 +19,7 @@ func (s *Stream) pushEvent(str string) {
 	}
 }
 
-//go:generate sh -c "go run ./... -dump-fsm | dot -s144 -Tsvg /dev/stdin -o fsm.svg"
+//go:generate sh -c "cd ../../ && go run ./... -dump-fsm | dot -Nmargin=0.8 -s144 -Tsvg /dev/stdin -o fsm.svg"
 func (s *Stream) GetFSM() *fsm.FSM {
 	return s.fsm.FSM
 }

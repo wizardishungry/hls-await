@@ -2,9 +2,6 @@ package stream
 
 import (
 	"flag"
-	"os"
-
-	"github.com/looplab/fsm"
 )
 
 type flags struct {
@@ -26,11 +23,6 @@ type flags struct {
 func WithFlags() StreamOption {
 	return func(s *Stream) error {
 		s.flags = someFlags
-
-		if s.flags.DumpFSM {
-			log.Println(fsm.Visualize(s.GetFSM()))
-			os.Exit(0)
-		}
 
 		return nil
 	}

@@ -6,12 +6,14 @@ import (
 	"image"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	my_roku "github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
+	"github.com/looplab/fsm"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -93,7 +95,12 @@ func (s *Stream) OneShot() chan<- struct{} { return s.oneShot }
 
 func (s *Stream) Run(ctx context.Context) error {
 
-	err := s.worker.Start(ctx) // TODO inject http proxy
+	if s.flags.DumpFSM {
+		fmt.Println(fsm.Visualize(s.GetFSM()))
+		os.Exit(0)
+	}
+
+	err := s.worker.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("%T.Start %w", s.worker, err)
 	}
