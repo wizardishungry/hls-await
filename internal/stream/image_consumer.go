@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
@@ -13,8 +14,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const goimagehashDim = 16 // should be power of 2, color bars show noise at 16
-var (                     // TODO move into struct
+const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
+var (                    // TODO move into struct
 	firstHash          *goimagehash.ExtImageHash
 	firstHashAvg       *goimagehash.ImageHash
 	globalFrameCounter int
@@ -40,7 +41,9 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 			}
 
 			func(img image.Image) {
-				s.bot.Chan() <- img
+				if atomic.LoadInt32(&s.sendToBot) != 0 {
+					s.bot.Chan() <- img
+				}
 			}(img)
 
 			go func(img image.Image) {
@@ -103,8 +106,8 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 					log.Println("consumeImages: ExtPerceptionHash Distance error", err)
 					return
 				}
-				// log.Printf("[%d] ExtPerceptionHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
 				if distance >= s.flags.Threshold {
+					log.Printf("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold) // TODO convert to "verbose"
 					firstHash = hash
 					s.pushEvent("unsteady")
 				} else {

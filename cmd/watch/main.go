@@ -11,6 +11,7 @@ import (
 	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/stream"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -25,42 +26,39 @@ var (
 func main() {
 	flag.Parse()
 
-	// if *flagDumpFSM {
-	// 	s, err := stream.NewStream()
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	log.Println(fsm.Visualize(s.GetFSM()))
-	// 	return
-	// }
-
 	args := flag.Args()
 	if len(args) == 0 {
 		args = []string{streamURL}
 	}
 
-	bot := bot.NewBot()
-	worker := stream.InitWorker()
+	b := bot.NewBot()
+	w := stream.InitWorker()
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	rokuCB := roku.Run(ctx) // TODO add flag
+	rokuCB := roku.Run(ctx) // TODO add flag and support autolaunch on motion
 
 	// TODO need to readd SIGUSR1 support for one shot
 	defer ctxCancel()
 	g, ctx := errgroup.WithContext(ctx)
 
-	for _, arg := range args {
+	if _, ok := w.(*worker.Child); !ok { // FIXME hacky
+		g.Go(func() error {
+			return b.Run(ctx)
+		})
+	}
 
+	for _, arg := range args {
 		u, err := url.Parse(arg)
+
 		if err != nil || u.Scheme == "" {
 			log.WithError(err).Fatalf("url.Parse: %s", arg)
 		}
 		currentStream, err = stream.NewStream(
 			stream.WithFlags(),
 			stream.WithURL(u),
-			stream.WithWorker(worker),
+			stream.WithWorker(w),
 			stream.WithRokuCB(rokuCB),
-			stream.WithBot(bot),
+			stream.WithBot(b),
 		)
 		if err != nil {
 			log.WithError(err).Fatal("stream.NewStream")
@@ -70,9 +68,7 @@ func main() {
 		g.Go(func() error {
 			return currentStream.Run(ctx)
 		})
-		g.Go(func() error {
-			return bot.Run(ctx)
-		})
+
 	}
 
 	go scanKeys(ctx)

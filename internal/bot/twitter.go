@@ -23,10 +23,11 @@ const (
 	TWITTER_ACCESS_TOKEN    = "TWITTER_ACCESS_TOKEN"
 	TWITTER_ACCESS_SECRET   = "TWITTER_ACCESS_SECRET"
 
-	updateInterval  = 60 * time.Second // 15 * time.Minute
-	numImages       = 4                // per post
-	maxQueuedImages = 25 * 15 * 60 * 2 // about 2 updateIntervals at 25fps
-	replyWindow     = 3 * updateInterval
+	updateIntervalMinutes = 1                                   // 10 // TODO bot will be spamming
+	updateInterval        = 10 * time.Second                    // updateIntervalMinutes * time.Minute
+	numImages             = 4                                   // per post
+	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 // about 2 updateIntervals at 25fps
+	replyWindow           = 3 * updateInterval
 )
 
 func newClient() *twitter.Client {
@@ -51,8 +52,8 @@ type Bot struct {
 	client     *twitter.Client
 	c          chan image.Image
 	images     []image.Image
-	lastPosted time.Time
-	lastID     int64 // TODO serialize to disk
+	lastPosted time.Time // TODO read from stream on boot
+	lastID     int64     // TODO read from stream on boot
 }
 
 func NewBot() *Bot {

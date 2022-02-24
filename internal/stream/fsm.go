@@ -1,9 +1,7 @@
 package stream
 
 import (
-	"bytes"
-	"image"
-	"image/png"
+	"sync/atomic"
 	"time"
 
 	"github.com/looplab/fsm"
@@ -52,22 +50,28 @@ func (s *Stream) newFSM() FSM {
 				"after_event": func(e *fsm.Event) {
 					if e.Src != e.Dst {
 						log.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
-						if e.Dst != "up" {
+						up := e.Dst == "up"
+						i32up := int32(0)
+						if up {
+							i32up = 1
+						}
+						atomic.StoreInt32(&s.sendToBot, i32up)
+						if !up {
 							return
 						}
-						img := func() image.Image {
-							singleImageMutex.Lock()
-							defer singleImageMutex.Unlock()
-							return singleImage
-						}()
-
-						f := &bytes.Buffer{}
-						err := png.Encode(f, img)
-						if err != nil {
-							log.Println("png.Encode", err)
-						}
+						// img := func() image.Image {
+						// 	singleImageMutex.Lock()
+						// 	defer singleImageMutex.Unlock()
+						// 	return singleImage
+						// }()
+						//
+						// f := &bytes.Buffer{}
+						// err := png.Encode(f, img)
+						// if err != nil {
+						// 	log.Println("png.Encode", err)
+						// }
 						// TODO: action here
-						_ = f
+						// _ = f
 					}
 				},
 			},

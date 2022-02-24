@@ -2,10 +2,9 @@ package stream
 
 import (
 	"flag"
+	"os"
 
-	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
-	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
-	"jonwillia.ms/roku"
+	"github.com/looplab/fsm"
 )
 
 type flags struct {
@@ -27,39 +26,12 @@ type flags struct {
 func WithFlags() StreamOption {
 	return func(s *Stream) error {
 		s.flags = someFlags
-		return nil
-	}
-}
 
-func InitWorker() worker.Worker {
-	if someFlags.Worker {
-		return &worker.Child{}
-	}
-	if !someFlags.Privsep {
-		return &worker.InProcess{}
-	}
-	return &worker.Parent{}
-}
+		if s.flags.DumpFSM {
+			log.Println(fsm.Visualize(s.GetFSM()))
+			os.Exit(0)
+		}
 
-func WithWorker(w worker.Worker) StreamOption {
-	// TODO: allow in-process workers
-	return func(s *Stream) error {
-		s.worker = w
-		return nil
-	}
-}
-
-func WithBot(b *bot.Bot) StreamOption {
-	// TODO: allow in-process workers
-	return func(s *Stream) error {
-		s.bot = b
-		return nil
-	}
-}
-
-func WithRokuCB(rokuCB func() (*roku.Remote, error)) StreamOption {
-	return func(s *Stream) error {
-		s.rokuCB = rokuCB
 		return nil
 	}
 }
@@ -69,7 +41,7 @@ func getFlags() *flags {
 	flag.BoolVar(&f.DumpHttp, "dump-http", false, "dumps http headers")
 	flag.BoolVar(&f.VerboseDecoder, "verbose", false, "ffmpeg debuggging info")
 	flag.IntVar(&f.AnsiArt, "ansi-art", 0, "output ansi art on modulo frame")
-	flag.IntVar(&f.Threshold, "threshold", 2, "need this much to output a warning")
+	flag.IntVar(&f.Threshold, "threshold", 4, "need this much to output a warning")
 	flag.BoolVar(&f.Flicker, "flicker", false, "reset terminal in ansi mode")
 	flag.IntVar(&f.FastStart, "fast-start", 1, "start by only processing this many recent segments")
 	flag.BoolVar(&f.FastResume, "fast-resume", true, "if we see a bunch of new segments, behave like fast start")

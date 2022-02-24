@@ -68,8 +68,9 @@ type Stream struct {
 	segmentMap map[url.URL]struct{}
 	fsm        FSM
 
-	worker worker.Worker
-	bot    *bot.Bot
+	worker    worker.Worker
+	bot       *bot.Bot
+	sendToBot int32 // for atomic
 
 	client *http.Client
 }
