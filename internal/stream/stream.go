@@ -109,7 +109,12 @@ func (s *Stream) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error { return s.consumeImages(ctx) })
+	g.Go(func() error { return s.processPlaylist(ctx) })
 
+	return g.Wait()
+}
+
+func (s *Stream) processPlaylist(ctx context.Context) error {
 	pollDuration := minPollDuration
 	for {
 		start := time.Now()
