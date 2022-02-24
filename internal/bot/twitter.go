@@ -23,8 +23,8 @@ const (
 	TWITTER_ACCESS_TOKEN    = "TWITTER_ACCESS_TOKEN"
 	TWITTER_ACCESS_SECRET   = "TWITTER_ACCESS_SECRET"
 
-	updateIntervalMinutes = 1                                   // 10 // TODO bot will be spamming
-	updateInterval        = 10 * time.Second                    // updateIntervalMinutes * time.Minute
+	updateIntervalMinutes = 10
+	updateInterval        = updateIntervalMinutes * time.Minute
 	numImages             = 4                                   // per post
 	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 // about 2 updateIntervals at 25fps
 	replyWindow           = 3 * updateInterval

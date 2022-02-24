@@ -40,12 +40,6 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				return nil
 			}
 
-			func(img image.Image) {
-				if atomic.LoadInt32(&s.sendToBot) != 0 {
-					s.bot.Chan() <- img
-				}
-			}(img)
-
 			go func(img image.Image) {
 				singleImageMutex.Lock()
 				defer singleImageMutex.Unlock()
@@ -134,6 +128,13 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 					// log.Printf("[%d] AverageHash distance is %d\n", globalFrameCounter, distance) // TODO convert to "verbose"
 				}
 			}(img)
+
+			func(img image.Image) {
+				if atomic.LoadInt32(&s.sendToBot) != 0 {
+					s.bot.Chan() <- img
+				}
+			}(img)
+
 			globalFrameCounter++
 		}
 	}
