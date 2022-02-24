@@ -30,7 +30,7 @@ const (
 	numImages             = 4                                                   // per post
 	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
 	replyWindow           = 3 * updateInterval
-	ImageFraction         = (1 / 25.0) // this is the proportion of images that make it from the decoder to here
+	ImageFraction         = (1 / 25.0) // this is the proportion of images that make it from the decoder to here, aiming for 1/s (@25fps)
 )
 
 var (
@@ -66,8 +66,8 @@ type Bot struct {
 	client     *twitter.Client
 	c          chan image.Image
 	images     []image.Image
-	lastPosted time.Time // TODO read from stream on boot
-	lastID     int64     // TODO read from stream on boot
+	lastPosted time.Time
+	lastID     int64
 }
 
 func NewBot() *Bot {
@@ -175,9 +175,6 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	}
 	b.lastPosted = time.Now()
 	b.lastID = t.ID
-
-	// TODO: on boot check timeline and reply to recent thread
-	//t.CreatedAt fmt is  `Wed Feb 23 23:25:53 +0000 2022``
 
 	b.images = b.images[0:0]
 	return nil
