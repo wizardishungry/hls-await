@@ -109,6 +109,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				}
 			}(img)
 			func(img image.Image) {
+				return // skip superfluous hashing. TODO: move hashes to helper
 				hash, err := goimagehash.AverageHash(img)
 				if err != nil {
 					log.Println("consumeImages: AverageHash error", err)

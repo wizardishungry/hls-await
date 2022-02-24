@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	"github.com/charlestamz/goav/avcodec"
 	"github.com/charlestamz/goav/avformat"
 	"github.com/charlestamz/goav/avutil"
@@ -18,6 +19,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+const minImages = 4
 
 type GoAV struct {
 	VerboseDecoder bool
@@ -34,7 +37,9 @@ var _ Handler = &GoAV{}
 
 var onceAvcodecRegisterAll sync.Once
 
-func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
+func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
+
+	defer func() { fractionImages(resp, err) }()
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
@@ -99,10 +104,9 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 	for i := 0; i < int(pFormatContext.NbStreams()); i++ {
 		switch pFormatContext.Streams()[i].CodecParameters().CodecType() {
 		case avcodec.AVMEDIA_TYPE_VIDEO:
-
 			// Get a pointer to the codec context for the video stream
 			pCodecCtxOrig := pFormatContext.Streams()[i].Codec()
-			// fmt.Println(pFormatContext.Streams()[i].CodecParameters().CodecType())
+			fmt.Println(pFormatContext.Streams()[i].CodecParameters().CodecType())
 
 			// Find the decoder for the video stream
 			pCodec := avcodec.AvcodecFindDecoder(avcodec.CodecId(pCodecCtxOrig.GetCodecId()))
@@ -194,7 +198,8 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 						// TODO do we really need every frame from a segment
 						// We could get a fraction but we would have to figure those into the twitter bot's calculations
 						// This would lower memory usage and the response size (248 raw RGB frames is a lot)
-						// 			pFormatContext.Streams()[i].NbFrames()
+						// pFormatContext.Streams()[i].NbFrames() returns 0
+						// TODO: everything below this could be skipped
 
 						// Convert the image from its native format to RGB
 						data := (*[8]*uint8)(unsafe.Pointer(pFrame.DataItem(0)))
@@ -211,6 +216,9 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 
 						tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
 						yimg, err := old_avutil.GetPicture(tmp)
+						if err != nil {
+							return errors.Wrap(err, "GetPicture")
+						}
 						// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
 
 						const ( // constrain weird green box
@@ -226,12 +234,9 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 							constraint.Max.Y = Ydim
 						}
 						// convert to RGBA because it serializes quickly
-						img := image.NewRGBA(constraint)
+						img := image.NewRGBA(constraint) // TODO no need to do this when running in-process
 						draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
 
-						if err != nil {
-							return errors.Wrap(err, "GetPicture")
-						}
 						resp.RawImages = append(resp.RawImages, img)
 
 						frameNumber++
@@ -250,4 +255,23 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) error {
 
 func goavError(response int) error {
 	return errors.New(avutil.AvStrerr(response))
+}
+
+func fractionImages(resp *Response, err error) {
+	if err == nil && resp != nil {
+		initLen := len(resp.RawImages)
+		limitImageCount := float64(initLen) * bot.ImageFraction
+		if limitImageCount <= minImages || limitImageCount >= float64(initLen) {
+			return
+		}
+		mod := int(float64(initLen) / limitImageCount)
+		newImages := make([]*image.RGBA, 0, int(limitImageCount))
+		for i, img := range resp.RawImages {
+			if i%mod == 0 {
+				newImages = append(newImages, img)
+			}
+		}
+		resp.RawImages = newImages
+		log.Infof("fractionImages %d -> %d", initLen, len(resp.RawImages))
+	}
 }

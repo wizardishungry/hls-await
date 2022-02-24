@@ -27,9 +27,10 @@ const (
 
 	updateIntervalMinutes = 10
 	updateInterval        = updateIntervalMinutes * time.Minute
-	numImages             = 4                                   // per post
-	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 // about 2 updateIntervals at 25fps
+	numImages             = 4                                                   // per post
+	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
 	replyWindow           = 3 * updateInterval
+	ImageFraction         = (1 / 25.0) // this is the proportion of images that make it from the decoder to here
 )
 
 var (
