@@ -14,7 +14,6 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/joho/godotenv v1.4.0
 	github.com/looplab/fsm v0.2.0
-	github.com/mattn/go-sixel v0.0.1
 	github.com/mattn/go-tty v0.0.4
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
@@ -33,7 +32,6 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
-	github.com/soniakeys/quant v1.0.0 // indirect
 	golang.org/x/image v0.0.0-20210504121937-7319ad40d33e // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 )
