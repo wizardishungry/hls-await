@@ -32,7 +32,7 @@ func getFlags() *flags {
 	flag.BoolVar(&f.DumpHttp, "dump-http", false, "dumps http headers")
 	flag.BoolVar(&f.VerboseDecoder, "verbose", false, "ffmpeg debuggging info")
 	flag.IntVar(&f.AnsiArt, "ansi-art", 0, "output ansi art on modulo frame")
-	flag.IntVar(&f.Threshold, "threshold", 5, "need this much to output a warning")
+	flag.IntVar(&f.Threshold, "threshold", 8, "need this much to output a warning")
 	flag.BoolVar(&f.Flicker, "flicker", false, "reset terminal in ansi mode")
 	flag.IntVar(&f.FastStart, "fast-start", 1, "start by only processing this many recent segments")
 	flag.BoolVar(&f.FastResume, "fast-resume", true, "if we see a bunch of new segments, behave like fast start")

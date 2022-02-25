@@ -97,9 +97,6 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 		}
 	}
 
-	// TODO this whole thing is too complicated
-	// replace with a goroutine that polls on timers
-
 	var enterNoData, enterSteady, enterUnsteady func(e *fsm.Event)
 
 	enterNoData = func(e *fsm.Event) {
