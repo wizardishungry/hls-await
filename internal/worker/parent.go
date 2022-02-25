@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
@@ -53,7 +54,26 @@ func (p *Parent) closeChild(ctx context.Context) error {
 		p.listener.Close()
 	}
 
+	p.nicelyKill(p.cmd) // kick the process
+
 	return nil
+}
+
+func (p *Parent) Restart() {
+	p.mutex.RLock()
+	cmd := p.cmd
+	p.mutex.RUnlock()
+	p.nicelyKill(cmd)
+}
+
+func (p *Parent) nicelyKill(cmd *exec.Cmd) {
+	// PRE: must own write mutex
+	if cmd != nil && cmd.Process != nil {
+		log.Info("Signaling child to exit")
+		cmd.Process.Signal(syscall.SIGQUIT)
+		time.Sleep(3 * time.Second)
+		cmd.Process.Kill()
+	}
 }
 
 func (p *Parent) spawnChild(ctx context.Context) (err error) {

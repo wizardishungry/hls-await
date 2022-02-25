@@ -15,6 +15,7 @@ const (
 
 type Worker interface {
 	Start(ctx context.Context) (err error)
+	Restart()
 	Handler() segment.Handler
 }
 

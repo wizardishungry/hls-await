@@ -12,6 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const segmentMaxDuration = 30 * time.Second
+
 func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
 	count := 0
 	for _, seg := range mediapl.Segments {
@@ -48,6 +50,8 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 		}
 		segCount++
 		err = func() error {
+			ctx, cancel := context.WithTimeout(ctx, segmentMaxDuration)
+			defer cancel()
 			start := time.Now()
 			name := tsURL.String()
 			log.Println("getting", name)
@@ -58,10 +62,8 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			getDone := time.Now().Sub(start)
 			defer tsResp.Body.Close()
 
-			select {
-			case <-ctx.Done():
+			if ctx.Err() != nil {
 				return nil
-			default:
 			}
 
 			r, w, err := os.Pipe()
@@ -71,6 +73,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			defer r.Close()
 			defer w.Close()
 
+			// TODO
 			// i, err := unix.FcntlInt(w.Fd(), unix.F_SETPIPE_SZ, 1048576) // /proc/sys/fs/pipe-max-size
 			// if err != nil {
 			// 	log.WithError(err).Errorf("F_SETPIPE_SZ: %d", i)
@@ -88,6 +91,9 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			}()
 
 			rFD := r.Fd()
+
+			// TODO: remove segment.Request any only use a renamed (FDRequest)
+			// ffmpeg only knows how to work with fds or files, NOT readers
 
 			var request segment.Request = &segment.FDRequest{FD: rFD}
 

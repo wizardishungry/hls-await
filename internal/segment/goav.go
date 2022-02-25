@@ -65,7 +65,7 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 		fd = f.Fd()
 	} else if request, ok := (*req).(*FDRequest); ok {
 		fd = request.FD
-		if goav.RecvUnixMsg {
+		if goav.RecvUnixMsg { // TODO: change Request interface to just yield a fd: func Fd(func() (uintptr, error)) (uinptr, err)
 			var ok bool
 			fd, ok = <-goav.FDs
 			if !ok {

@@ -25,6 +25,10 @@ func (c *Child) Start(ctx context.Context) error {
 	return retErr
 }
 
+func (c *Child) Restart() {
+	log.Fatalf("We should never be restarting a child worker.")
+}
+
 func (c *Child) runWorker(ctx context.Context) error {
 	// log = log.WithField("child", true)
 	f, err := fromFD(WORKER_FD)
@@ -39,6 +43,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 	}
 	listener := l.(*net.UnixListener)
 	go func() {
+		// func (*ListenConfig) Listen is the way to make this abortable by context and we don't have that here
 		<-ctx.Done()
 		listener.Close()
 	}()

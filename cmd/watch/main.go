@@ -34,11 +34,16 @@ func main() {
 	b := bot.NewBot()
 	w := stream.InitWorker()
 
-	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	ctx, ctxCancel := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGTERM, syscall.SIGQUIT,
+		os.Interrupt, os.Kill,
+	)
+	defer func() {
+		ctxCancel()
+		log.Info("main exiting")
+	}()
 	rokuCB := roku.Run(ctx) // TODO add flag and support autolaunch on motion
 
-	// TODO need to readd SIGUSR1 support for one shot
-	defer ctxCancel()
 	g, ctx := errgroup.WithContext(ctx)
 
 	if _, ok := w.(*worker.Child); !ok { // FIXME hacky
