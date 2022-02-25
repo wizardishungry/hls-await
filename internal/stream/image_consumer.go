@@ -90,7 +90,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 					return errors.Wrap(err, "ExtPerceptionHash Distance error")
 				}
 				if distance >= s.flags.Threshold {
-					log.Infof("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold) // TODO convert to "verbose"
+					log.Infof("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold) // TODO convert to Trace
 					firstHash = hash
 					s.pushEvent("unsteady")
 				} else {

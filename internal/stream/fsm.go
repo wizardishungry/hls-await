@@ -1,7 +1,6 @@
 package stream
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -50,7 +49,7 @@ func (s *Stream) newFSM() *FSM {
 					s.oneShot <- struct{}{}
 				},
 				"after_event": func(e *fsm.Event) {
-					// fmt.Println("event", e.Event) // TODO convert to verbose
+					// fmt.Println("event", e.Event) // TODO convert to Debug
 					if e.Src != e.Dst {
 						log.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
 						up := e.Dst == "up"
@@ -140,9 +139,9 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 			"enter_steady":   enterSteady,
 			"enter_unsteady": enterUnsteady,
 			"after_event": func(e *fsm.Event) {
-				fmt.Println("timer event", e.Event)
+				// fmt.Println("timer event", e.Event) // TODO convert to Trace
 				if e.Src != e.Dst {
-					log.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to "verbose"
+					log.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to Debug
 				}
 				idleTimer.Reset(duration)
 

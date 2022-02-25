@@ -27,6 +27,7 @@ const (
 
 	updateIntervalMinutes = 10
 	updateInterval        = updateIntervalMinutes * time.Minute
+	minUpdateInterval     = 20 * time.Second                                    // used for tweeting quickly after a manual restart
 	numImages             = 4                                                   // per post
 	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
 	replyWindow           = 3 * updateInterval
@@ -95,7 +96,17 @@ func (b *Bot) Chan() chan<- image.Image {
 
 func (b *Bot) consumeImages(ctx context.Context) error {
 
-	ticker := time.NewTicker(updateInterval)
+	firstInterval := updateInterval
+	if !b.lastPosted.IsZero() {
+		// try to post something quickly after manual restarts
+		durSinceLast := time.Now().Sub(b.lastPosted)
+		firstInterval = updateInterval - durSinceLast
+		if firstInterval < minUpdateInterval {
+			firstInterval = minUpdateInterval
+		}
+	}
+
+	ticker := time.NewTicker(firstInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -111,6 +122,7 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			if err != nil {
 				log.WithError(err).Warn("maybeDoPost")
 			}
+			ticker.Reset(updateInterval)
 		}
 	}
 }
