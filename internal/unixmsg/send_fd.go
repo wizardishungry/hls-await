@@ -14,13 +14,13 @@ func SendFd(conn *net.UnixConn, fd uintptr) error {
 	dummy := []byte("x")
 	n, oobn, err := conn.WriteMsgUnix(dummy, rights, nil)
 	if err != nil {
-		return fmt.Errorf("sendfd: err %v", err)
+		return fmt.Errorf("err %v", err)
 	}
 	if n != len(dummy) {
-		return fmt.Errorf("sendfd: short write %v", conn)
+		return fmt.Errorf("short write %v", conn)
 	}
 	if oobn != len(rights) {
-		return fmt.Errorf("sendfd: short oob write %v", conn)
+		return fmt.Errorf("short oob write %v", conn)
 	}
 	return nil
 }
@@ -30,22 +30,22 @@ func RecvFd(conn *net.UnixConn) (uintptr, error) {
 	oob := make([]byte, 32)
 	_, oobn, _, _, err := conn.ReadMsgUnix(buf, oob)
 	if err != nil {
-		return 0, fmt.Errorf("recvfd: err %v", err)
+		return 0, err
 	}
 	scms, err := syscall.ParseSocketControlMessage(oob[:oobn])
 	if err != nil {
-		return 0, fmt.Errorf("recvfd: ParseSocketControlMessage failed %v", err)
+		return 0, fmt.Errorf("ParseSocketControlMessage %w", err)
 	}
 	if len(scms) != 1 {
-		return 0, fmt.Errorf("recvfd: SocketControlMessage count not 1: %v", len(scms))
+		return 0, fmt.Errorf("SocketControlMessage count not 1: %v", len(scms))
 	}
 	scm := scms[0]
 	fds, err := syscall.ParseUnixRights(&scm)
 	if err != nil {
-		return 0, fmt.Errorf("recvfd: ParseUnixRights failed %v", err)
+		return 0, fmt.Errorf("ParseUnixRights: %w", err)
 	}
 	if len(fds) != 1 {
-		return 0, fmt.Errorf("recvfd: fd count not 1: %v", len(fds))
+		return 0, fmt.Errorf("fd count not 1: %v", len(fds))
 	}
 	return uintptr(fds[0]), nil
 }

@@ -120,6 +120,8 @@ func (p *Parent) spawnChild(ctx context.Context) (err error) {
 	p.launchCount++
 	p.cmd = cmd
 
+	// NB: all streams will share the same dialed connection
+
 	conn, err := net.DialUnix("unix", nil, ul.Addr().(*net.UnixAddr))
 	if err != nil {
 		return err
@@ -192,6 +194,6 @@ func (w *Parent) HandleSegment(request *segment.Request, resp *segment.Response)
 	if err != nil {
 		return errors.Wrap(err, "unixmsg.SendFd")
 	}
-	log.Infof("transmit fd %d", request.FD)
+	log.Infof("transmitted fd %d", request.FD)
 	return w.client.Call("GoAV.HandleSegment", request, resp)
 }

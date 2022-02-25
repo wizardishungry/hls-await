@@ -49,6 +49,8 @@ func (c *Child) runWorker(ctx context.Context) error {
 	}()
 
 	for ctx.Err() == nil {
+		// NB: this does not support multiple client connections, all clients share the same parent Worker
+		// and only a single ffmpeg call will be running at a time
 		err := func() error {
 
 			fds := make(chan uintptr)
