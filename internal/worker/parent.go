@@ -188,14 +188,10 @@ func (w *Parent) HandleSegment(request *segment.Request, resp *segment.Response)
 		return errors.New("rpc client not set yet")
 	}
 
-	if fdr, ok := (*request).(*segment.FDRequest); ok {
-		f := os.NewFile(fdr.FD, "whatever")
-		err := unixmsg.SendFd(w.connFD, f)
-		if err != nil {
-			return errors.Wrap(err, "unixmsg.SendFd")
-		}
-		log.Infof("transmit fd %d", fdr.FD)
+	err := unixmsg.SendFd(w.connFD, request.FD)
+	if err != nil {
+		return errors.Wrap(err, "unixmsg.SendFd")
 	}
-	err := w.client.Call("GoAV.HandleSegment", request, resp)
-	return err
+	log.Infof("transmit fd %d", request.FD)
+	return w.client.Call("GoAV.HandleSegment", request, resp)
 }

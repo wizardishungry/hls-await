@@ -10,7 +10,7 @@ import (
 
 const workerMaxDuration = 10 * time.Second // if the worker appears to be stalled
 
-func (s *Stream) ProcessSegment(ctx context.Context, request segment.Request) error {
+func (s *Stream) ProcessSegment(ctx context.Context, request *segment.Request) error {
 
 	h := s.worker.Handler()
 
@@ -30,7 +30,7 @@ func (s *Stream) ProcessSegment(ctx context.Context, request segment.Request) er
 	}()
 
 	var resp segment.Response
-	err := h.HandleSegment(&request, &resp)
+	err := h.HandleSegment(request, &resp)
 	close(workerDone)
 
 	if err != nil {

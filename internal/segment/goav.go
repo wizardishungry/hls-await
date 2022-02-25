@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
-	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -48,32 +47,14 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 		// 	panic("test restarting")
 		// }()
 	})
-	var fd uintptr
 
-	if request, ok := (*req).(*FilenameRequest); ok {
-
-		var (
-			file = request.Filename
-		)
-
-		// test pipes protocol https://gist.github.com/wseemann/b1694cbef5689ca2a4ded5064eb91750#file-ffmpeg_mediametadataretriever-c
-		f, err := os.Open(file)
-		if err != nil {
-			return errors.Wrap(err, "os.Open")
+	fd := req.FD
+	if goav.RecvUnixMsg {
+		var ok bool
+		fd, ok = <-goav.FDs
+		if !ok {
+			return fmt.Errorf("fd channel closed")
 		}
-		defer f.Close()
-		fd = f.Fd()
-	} else if request, ok := (*req).(*FDRequest); ok {
-		fd = request.FD
-		if goav.RecvUnixMsg { // TODO: change Request interface to just yield a fd: func Fd(func() (uintptr, error)) (uinptr, err)
-			var ok bool
-			fd, ok = <-goav.FDs
-			if !ok {
-				return fmt.Errorf("fd channel closed")
-			}
-		}
-	} else {
-		return fmt.Errorf("request type isn't handled: %T", request) // TODO remove
 	}
 
 	if fd <= 0 {

@@ -92,10 +92,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 
 			rFD := r.Fd()
 
-			// TODO: remove segment.Request any only use a renamed (FDRequest)
-			// ffmpeg only knows how to work with fds or files, NOT readers
-
-			var request segment.Request = &segment.FDRequest{FD: rFD}
+			request := &segment.Request{FD: rFD}
 
 			err = s.ProcessSegment(ctx, request) // TODO retries?
 			processDone := time.Now().Sub(start)
