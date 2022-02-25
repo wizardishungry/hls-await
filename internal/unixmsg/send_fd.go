@@ -3,7 +3,6 @@ package unixmsg
 import (
 	"fmt"
 	"net"
-	"os"
 	"syscall"
 )
 
@@ -26,27 +25,27 @@ func SendFd(conn *net.UnixConn, fd uintptr) error {
 	return nil
 }
 
-func RecvFd(conn *net.UnixConn) (*os.File, error) {
+func RecvFd(conn *net.UnixConn) (uintptr, error) {
 	buf := make([]byte, 32)
 	oob := make([]byte, 32)
 	_, oobn, _, _, err := conn.ReadMsgUnix(buf, oob)
 	if err != nil {
-		return nil, fmt.Errorf("recvfd: err %v", err)
+		return 0, fmt.Errorf("recvfd: err %v", err)
 	}
 	scms, err := syscall.ParseSocketControlMessage(oob[:oobn])
 	if err != nil {
-		return nil, fmt.Errorf("recvfd: ParseSocketControlMessage failed %v", err)
+		return 0, fmt.Errorf("recvfd: ParseSocketControlMessage failed %v", err)
 	}
 	if len(scms) != 1 {
-		return nil, fmt.Errorf("recvfd: SocketControlMessage count not 1: %v", len(scms))
+		return 0, fmt.Errorf("recvfd: SocketControlMessage count not 1: %v", len(scms))
 	}
 	scm := scms[0]
 	fds, err := syscall.ParseUnixRights(&scm)
 	if err != nil {
-		return nil, fmt.Errorf("recvfd: ParseUnixRights failed %v", err)
+		return 0, fmt.Errorf("recvfd: ParseUnixRights failed %v", err)
 	}
 	if len(fds) != 1 {
-		return nil, fmt.Errorf("recvfd: fd count not 1: %v", len(fds))
+		return 0, fmt.Errorf("recvfd: fd count not 1: %v", len(fds))
 	}
-	return os.NewFile(uintptr(fds[0]), "passed-fd"), nil
+	return uintptr(fds[0]), nil
 }

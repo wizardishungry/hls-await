@@ -90,19 +90,18 @@ func (c *Child) runWorker(ctx context.Context) error {
 				fdConn := conn.(*net.UnixConn)
 				for ctx.Err() == nil {
 
-					f, err := unixmsg.RecvFd(fdConn)
+					fd, err := unixmsg.RecvFd(fdConn)
 
 					if err != nil {
 						log.WithError(err).Warn("unixmsg.RecvFd")
 						return
 					}
-					log.Infof("unixmsg.RecvFd: %d", f.Fd())
+					log.Infof("unixmsg.RecvFd: %d", fd)
 					// push fds into a channel, danger may deadlock
 					select {
 					case <-ctx.Done():
 						return
-					case fds <- f.Fd():
-						log.Info("name is ", f.Name())
+					case fds <- fd:
 					}
 				}
 			}()
