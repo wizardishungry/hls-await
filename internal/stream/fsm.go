@@ -84,7 +84,7 @@ func (s *Stream) newFSM() *FSM {
 }
 
 func newTimer(target *fsm.FSM) *fsm.FSM {
-	const duration = 30 * time.Second
+	const duration = 30 * time.Second // TODO move to const
 	allStates := []string{"steady", "unsteady", "no_data"}
 	var noDataTimer, steadyTimer, unsteadyTimer *time.Timer
 	idleTimer := time.NewTicker(duration)
@@ -97,6 +97,9 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 		}
 	}
 
+	// TODO this whole thing is too complicated
+	// replace with a goroutine that polls on timers
+
 	var enterNoData, enterSteady, enterUnsteady func(e *fsm.Event)
 
 	enterNoData = func(e *fsm.Event) {
@@ -107,7 +110,6 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 			enterNoData(e)
 		})
 	}
-
 	enterSteady = func(e *fsm.Event) {
 		cancelTimer(noDataTimer)
 		// do not cancel unsteady timer
@@ -126,6 +128,13 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 			enterUnsteady(e)
 		})
 	}
+
+	go func() {
+		for {
+			<-idleTimer.C
+			f.Event("no_data")
+		}
+	}()
 
 	f = fsm.NewFSM(
 		"no_data",
@@ -152,13 +161,6 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 			},
 		},
 	)
-
-	go func() {
-		for {
-			<-idleTimer.C
-			f.Event("no_data")
-		}
-	}()
 
 	return f
 }
