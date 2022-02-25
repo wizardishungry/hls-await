@@ -62,7 +62,7 @@ func main() {
 		if err != nil || u.Scheme == "" {
 			log.WithError(err).Fatalf("url.Parse: %s", arg)
 		}
-		currentStream, err = stream.NewStream(
+		s, err := stream.NewStream(
 			stream.WithFlags(),
 			stream.WithURL(u),
 			stream.WithWorker(w),
@@ -75,11 +75,10 @@ func main() {
 		log.Infof("monitoring %+v", u)
 
 		g.Go(func() error {
-			return currentStream.Run(ctx)
+			return s.Run(ctx)
 		})
-
+		currentStream = s
 	}
-
 	go scanKeys(ctx)
 
 	if err := g.Wait(); err != nil {

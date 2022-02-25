@@ -10,9 +10,9 @@ import (
 )
 
 func scanKeys(ctx context.Context) {
-	tty, err := tty.Open()
+	tty, err := tty.OpenDevice("/dev/stdin")
 	if err != nil {
-		log.Fatal(err)
+		return // child process will fail
 	}
 	defer tty.Close()
 

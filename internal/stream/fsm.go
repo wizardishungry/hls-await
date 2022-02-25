@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -13,6 +14,7 @@ type FSM struct {
 }
 
 func (s *Stream) pushEvent(str string) {
+	// fmt.Println("pushEvent", str) // FIXME convert to trace
 	err := s.fsm.Target.Event(str)
 	if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
 		log.Println("push event error", s, err, s.fsm.Target.Current())
@@ -24,7 +26,7 @@ func (s *Stream) GetFSM() *fsm.FSM {
 	return s.fsm.FSM
 }
 
-func (s *Stream) newFSM() FSM {
+func (s *Stream) newFSM() *FSM {
 	f := FSM{
 		FSM: fsm.NewFSM(
 			"undefined",
@@ -48,6 +50,7 @@ func (s *Stream) newFSM() FSM {
 					s.oneShot <- struct{}{}
 				},
 				"after_event": func(e *fsm.Event) {
+					// fmt.Println("event", e.Event) // TODO convert to verbose
 					if e.Src != e.Dst {
 						log.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
 						up := e.Dst == "up"
@@ -72,12 +75,13 @@ func (s *Stream) newFSM() FSM {
 						// }
 						// TODO: action here
 						// _ = f
+
 					}
 				},
 			},
 		)}
 	f.Target = newTimer(f.FSM)
-	return f
+	return &f
 }
 
 func newTimer(target *fsm.FSM) *fsm.FSM {
@@ -94,6 +98,36 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 		}
 	}
 
+	var enterNoData, enterSteady, enterUnsteady func(e *fsm.Event)
+
+	enterNoData = func(e *fsm.Event) {
+		cancelTimer(steadyTimer)
+		cancelTimer(unsteadyTimer)
+		noDataTimer = time.AfterFunc(duration, func() {
+			target.Event("no_data_timer")
+			enterNoData(e)
+		})
+	}
+
+	enterSteady = func(e *fsm.Event) {
+		cancelTimer(noDataTimer)
+		// do not cancel unsteady timer
+		steadyTimer = time.AfterFunc(duration, func() {
+			cancelTimer(unsteadyTimer)
+			target.Event("steady_timer")
+			enterSteady(e)
+		})
+	}
+	enterUnsteady = func(e *fsm.Event) {
+		cancelTimer(steadyTimer)
+		cancelTimer(noDataTimer)
+		unsteadyTimer = time.AfterFunc(duration, func() {
+			cancelTimer(steadyTimer)
+			target.Event("unsteady_timer")
+			enterUnsteady(e)
+		})
+	}
+
 	f = fsm.NewFSM(
 		"no_data",
 		fsm.Events{
@@ -102,32 +136,13 @@ func newTimer(target *fsm.FSM) *fsm.FSM {
 			{Name: "no_data", Src: allStates, Dst: "no_data"},
 		},
 		fsm.Callbacks{
-			"enter_no_data": func(e *fsm.Event) {
-				cancelTimer(steadyTimer)
-				cancelTimer(unsteadyTimer)
-				noDataTimer = time.AfterFunc(duration, func() {
-					target.Event("no_data_timer")
-				})
-			},
-			"enter_steady": func(e *fsm.Event) {
-				cancelTimer(noDataTimer)
-				// do not cancel unsteady timer
-				steadyTimer = time.AfterFunc(duration, func() {
-					cancelTimer(unsteadyTimer)
-					target.Event("steady_timer")
-				})
-			},
-			"enter_unsteady": func(e *fsm.Event) {
-				cancelTimer(steadyTimer)
-				cancelTimer(noDataTimer)
-				unsteadyTimer = time.AfterFunc(duration, func() {
-					cancelTimer(steadyTimer)
-					target.Event("unsteady_timer")
-				})
-			},
+			"enter_no_data":  enterNoData,
+			"enter_steady":   enterSteady,
+			"enter_unsteady": enterUnsteady,
 			"after_event": func(e *fsm.Event) {
+				fmt.Println("timer event", e.Event)
 				if e.Src != e.Dst {
-					// log.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to "verbose"
+					log.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to "verbose"
 				}
 				idleTimer.Reset(duration)
 

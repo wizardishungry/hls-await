@@ -105,7 +105,6 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-
 			b.images = append(b.images, img)
 		case <-ticker.C:
 			err := b.maybeDoPost(ctx) // TODO retry
@@ -145,6 +144,7 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	}
 
 	log.Info("uploading pics")
+
 	g, ctx := errgroup.WithContext(ctx)
 	for i, img := range images {
 		img := img

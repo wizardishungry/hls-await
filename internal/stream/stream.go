@@ -68,7 +68,7 @@ type Stream struct {
 	imageChan  chan image.Image
 	flags      *flags
 	segmentMap map[url.URL]struct{}
-	fsm        FSM
+	fsm        *FSM
 
 	worker    worker.Worker
 	bot       *bot.Bot
