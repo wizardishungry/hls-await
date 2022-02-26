@@ -55,6 +55,29 @@ func TestScoringAlgos(t *testing.T) {
 	}
 }
 
+func BenchmarkScoreImage(b *testing.B) {
+	const (
+		xDim = 720
+		yDim = 576
+	)
+	rect := image.Rectangle{Min: image.Point{}, Max: image.Point{X: xDim, Y: yDim}}
+
+	for _, tC := range standardTestCases {
+		b.Run(tC.desc, func(b *testing.B) {
+			ctx := context.Background()
+			bs := NewBulkScore(ctx, tC.scoreF)
+			for n := 0; n < b.N; n++ {
+				img := image.NewRGBA(rect)
+				_, err := bs.ScoreImage(ctx, img)
+				if err != nil {
+					b.Fatalf("ScoreImage: %v", err)
+				}
+			}
+		})
+	}
+
+}
+
 func getTestingImages(t *testing.T) map[string]map[string]image.Image {
 	images := make(map[string]map[string]image.Image)
 	err := filepath.Walk("testdata/images", func(path string, info fs.FileInfo, err error) error {

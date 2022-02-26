@@ -9,7 +9,7 @@ import (
 
 //go:generate sh -c "go test ./... -run '^$' -benchmem -bench . |tee benchresult.txt"
 
-func BenchmarkBulk(b *testing.B) {
+func BenchmarkBulkScores(b *testing.B) {
 	const (
 		xDim = 720
 		yDim = 576
@@ -45,7 +45,7 @@ func FuzzBulk(f *testing.F) {
 
 		ctx := context.Background()
 		bs := NewBulkScore(ctx,
-			func() ImageScorer { return NewPngScorer() },
+			func() ImageScorer { return NewJpegScorer() },
 		)
 
 		var wg sync.WaitGroup

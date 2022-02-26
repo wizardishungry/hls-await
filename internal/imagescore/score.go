@@ -34,6 +34,7 @@ func (dc *discardCounter) Write(p []byte) (n int, err error) {
 func uncompressedImageSize(img image.Image) (float64, error) {
 	buf := &discardCounter{}
 	err := gob.NewEncoder(buf).Encode(&img)
+	// err = binary.Write(buf, binary.LittleEndian, img.(*image.RGBA).Pix)
 	if err != nil {
 		return -1, err
 	}
