@@ -35,7 +35,7 @@ func main() {
 	w := stream.InitWorker()
 
 	ctx, ctxCancel := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGTERM, syscall.SIGQUIT,
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGTERM,
 		os.Interrupt, os.Kill,
 	)
 	defer func() {

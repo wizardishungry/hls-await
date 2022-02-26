@@ -62,6 +62,18 @@ func init() {
 			},
 			desc: "Launch Stream in Roku Stream Tester",
 		},
+		'u': {
+			cb: func(c context.Context) {
+				currentStream.PushEvent("unsteady")
+			},
+			desc: "Push an unsteady event", // FIXME remove
+		},
+		'U': {
+			cb: func(c context.Context) {
+				currentStream.GetFSM().Event("unsteady_timer")
+			},
+			desc: "Go up immediately", // FIXME remove
+		},
 		'?': {
 			desc: "Help",
 			cb: func(c context.Context) {

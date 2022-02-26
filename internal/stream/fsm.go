@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -8,16 +9,19 @@ import (
 )
 
 type FSM struct {
-	Clock       func() time.Time
-	FSM, Target *fsm.FSM
+	Clock  func() time.Time
+	FSM    *fsm.FSM
+	Target chan string
 }
 
-func (s *Stream) pushEvent(str string) {
-	// fmt.Println("pushEvent", str) // FIXME convert to trace
-	err := s.fsm.Target.Event(str)
-	if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
-		log.Println("push event error", s, err, s.fsm.Target.Current())
+func (s *Stream) PushEvent(str string) {
+	fmt.Println("pushEvent", str) // FIXME convert to trace
+	select {
+	case s.fsm.Target <- str:
+	case <-time.After(time.Second):
+		fmt.Println("pushEvent hung")
 	}
+	fmt.Println("pushEvent done", str) // FIXME convert to trace
 }
 
 //go:generate sh -c "cd ../../ && go run ./... -dump-fsm | dot -Nmargin=0.8 -s144 -Tsvg /dev/stdin -o fsm.svg"
@@ -46,7 +50,10 @@ func (s *Stream) newFSM() *FSM {
 			},
 			fsm.Callbacks{
 				"enter_up": func(e *fsm.Event) {
-					s.oneShot <- struct{}{}
+					select {
+					default:
+					case s.oneShot <- struct{}{}:
+					}
 				},
 				"after_event": func(e *fsm.Event) {
 					// fmt.Println("event", e.Event) // TODO convert to Debug
@@ -83,81 +90,48 @@ func (s *Stream) newFSM() *FSM {
 	return &f
 }
 
-func newTimer(target *fsm.FSM) *fsm.FSM {
-	const duration = 30 * time.Second // TODO move to const
-	allStates := []string{"steady", "unsteady", "no_data"}
-	var noDataTimer, steadyTimer, unsteadyTimer *time.Timer
-	idleTimer := time.NewTicker(duration)
-	var f *fsm.FSM
+func newTimer(target *fsm.FSM) chan string {
 
-	cancelTimer := func(t *time.Timer) {
-		if t != nil {
-			t.Stop()
-			t = nil
-		}
-	}
+	c := make(chan string, 1)
 
-	var enterNoData, enterSteady, enterUnsteady func(e *fsm.Event)
-
-	enterNoData = func(e *fsm.Event) {
-		cancelTimer(steadyTimer)
-		cancelTimer(unsteadyTimer)
-		noDataTimer = time.AfterFunc(duration, func() {
-			target.Event("no_data_timer")
-			enterNoData(e)
-		})
-	}
-	enterSteady = func(e *fsm.Event) {
-		cancelTimer(noDataTimer)
-		// do not cancel unsteady timer
-		steadyTimer = time.AfterFunc(duration, func() {
-			cancelTimer(unsteadyTimer)
-			target.Event("steady_timer")
-			enterSteady(e)
-		})
-	}
-	enterUnsteady = func(e *fsm.Event) {
-		cancelTimer(steadyTimer)
-		cancelTimer(noDataTimer)
-		unsteadyTimer = time.AfterFunc(duration, func() {
-			cancelTimer(steadyTimer)
-			target.Event("unsteady_timer")
-			enterUnsteady(e)
-		})
-	}
-
+	const (
+		duration = 30 * time.Second // TODO move to global config
+		idleDur  = 3 * duration
+	)
 	go func() {
+		idleTimer := time.NewTicker(idleDur)
+
 		for {
-			<-idleTimer.C
-			f.Event("no_data")
+			fmt.Println("event loop")
+			select {
+			case <-idleTimer.C:
+				c <- "no_data"
+				continue
+			case event := <-c:
+				target.Event(event)
+				func() {
+					eventTimer := time.NewTimer(duration)
+
+					idleTimer.Reset(idleDur)
+					for {
+						select {
+						case <-idleTimer.C:
+							c <- "no_data"
+							continue
+						case nextEvent := <-c:
+							if nextEvent != event {
+								c <- nextEvent
+								return
+							}
+						case <-eventTimer.C:
+							target.Event(event + "_timer")
+							return
+						}
+					}
+				}()
+			}
 		}
 	}()
 
-	f = fsm.NewFSM(
-		"no_data",
-		fsm.Events{
-			{Name: "steady", Src: allStates, Dst: "steady"},
-			{Name: "unsteady", Src: allStates, Dst: "unsteady"},
-			{Name: "no_data", Src: allStates, Dst: "no_data"},
-		},
-		fsm.Callbacks{
-			"enter_no_data":  enterNoData,
-			"enter_steady":   enterSteady,
-			"enter_unsteady": enterUnsteady,
-			"after_event": func(e *fsm.Event) {
-				// fmt.Println("timer event", e.Event) // TODO convert to Trace
-				if e.Src != e.Dst {
-					log.Printf("⏰[%s -> %s] %s\n", e.Src, e.Dst, e.Event) // TODO convert to Debug
-				}
-				idleTimer.Reset(duration)
-
-				err := target.Event(e.Dst)
-				if _, ok := err.(fsm.NoTransitionError); err != nil && !ok {
-					log.Println("problem with clock event", e, err)
-				}
-			},
-		},
-	)
-
-	return f
+	return c
 }

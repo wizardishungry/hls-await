@@ -70,7 +70,7 @@ func (p *Parent) nicelyKill(cmd *exec.Cmd) {
 	// PRE: must own write mutex
 	if cmd != nil && cmd.Process != nil {
 		log.Info("Signaling child to exit")
-		cmd.Process.Signal(syscall.SIGQUIT)
+		cmd.Process.Signal(syscall.SIGTERM)
 		time.Sleep(3 * time.Second)
 		cmd.Process.Kill()
 	}
