@@ -11,35 +11,33 @@ import (
 	"testing"
 )
 
+var standardTestCases = []struct {
+	desc   string
+	scoreF func() ImageScorer
+}{
+	{
+		desc:   "png",
+		scoreF: func() ImageScorer { return NewPngScorer() },
+	},
+	{
+		desc:   "gzip",
+		scoreF: func() ImageScorer { return NewGzipScorer() },
+	},
+	{
+		desc:   "jpeg",
+		scoreF: func() ImageScorer { return NewJpegScorer() },
+	},
+	{
+		desc:   "gif",
+		scoreF: func() ImageScorer { return NewGifScorer() },
+	},
+}
+
 func TestScoringAlgos(t *testing.T) {
 	images := getTestingImages(t)
-	fmt.Println(images)
-	testCases := []struct {
-		desc   string
-		scoreF func() ImageScorer
-	}{
-		{
-			desc:   "png",
-			scoreF: func() ImageScorer { return NewPngScorer() },
-		},
-		{
-			desc:   "gzip",
-			scoreF: func() ImageScorer { return NewGzipScorer() },
-		},
-		{
-			desc:   "jpeg",
-			scoreF: func() ImageScorer { return NewJpegScorer() },
-		},
-		{
-			desc:   "gif",
-			scoreF: func() ImageScorer { return NewGifScorer() },
-		},
-	}
 
-	for _, tCuncap := range testCases {
-		tC := tCuncap
+	for _, tC := range standardTestCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			// t.Parallel()
 			ctx := context.Background()
 			scorer := tC.scoreF()
 

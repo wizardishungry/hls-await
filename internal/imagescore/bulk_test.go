@@ -14,19 +14,22 @@ func BenchmarkBulk(b *testing.B) {
 	)
 	rect := image.Rectangle{Min: image.Point{}, Max: image.Point{X: xDim, Y: yDim}}
 
-	ctx := context.Background()
-	bs := NewBulkScore(ctx,
-		func() ImageScorer { return NewPngScorer() },
-	)
-	b.RunParallel(func(p *testing.PB) {
-		for p.Next() {
-			img := image.NewRGBA(rect)
-			_, err := bs.ScoreImage(ctx, img)
-			if err != nil {
-				b.Fatalf("ScoreImage: %v", err)
-			}
-		}
-	})
+	for _, tC := range standardTestCases {
+		b.Run(tC.desc, func(b *testing.B) {
+			ctx := context.Background()
+			bs := NewBulkScore(ctx, tC.scoreF)
+			b.RunParallel(func(p *testing.PB) {
+				for p.Next() {
+					img := image.NewRGBA(rect)
+					_, err := bs.ScoreImage(ctx, img)
+					if err != nil {
+						b.Fatalf("ScoreImage: %v", err)
+					}
+				}
+			})
+
+		})
+	}
 
 }
 
