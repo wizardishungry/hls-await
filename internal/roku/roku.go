@@ -3,19 +3,17 @@ package roku
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"golang.org/x/sync/errgroup"
 	"jonwillia.ms/roku"
 )
 
-var log *logrus.Logger = logrus.New() // TODO move onto struct
-
 func Run(ctx context.Context) func() (*roku.Remote, error) {
+	log := logger.Entry(ctx)
 
 	const dur = time.Minute
 	var (
@@ -77,7 +75,6 @@ func Run(ctx context.Context) func() (*roku.Remote, error) {
 }
 
 func On(remote *roku.Remote, u string) error {
-	fmt.Println("launch", u)
 
 	err := remote.LaunchWithValues(&roku.App{Id: "63218", Name: "Roku Stream Tester"},
 		url.Values{

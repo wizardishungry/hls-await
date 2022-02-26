@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/die-net/lrucache"
 	"github.com/gregjones/httpcache"
 )
@@ -37,7 +38,8 @@ func NewSingleHostReverseProxy(ctx context.Context, target *url.URL, flagDumpHtt
 			if s, err := httputil.DumpRequest(req, false); err != nil {
 				panic(err)
 			} else {
-				fmt.Println("proxy dumping", string(s))
+				log := logger.Entry(ctx)
+				log.Println("proxy dumping ", string(s))
 			}
 		}
 
@@ -46,18 +48,6 @@ func NewSingleHostReverseProxy(ctx context.Context, target *url.URL, flagDumpHtt
 	rp.Director = director
 
 	c := lrucache.New(maxBytes, int64(ttl.Seconds()))
-
-	go func() {
-		size := int64(-1)
-		for ctx.Err() == nil {
-			newSize := c.Size()
-			time.Sleep(time.Second)
-			if size != newSize {
-				// fmt.Printf("in memory cache: %d -> %d\n", size, newSize)
-				size = newSize
-			}
-		}
-	}()
 
 	rp.Transport = httpcache.NewTransport(c)
 	// use outgoing socket addr, so we can pass the same url to roku and not fetch segments twice (save bandwidth)

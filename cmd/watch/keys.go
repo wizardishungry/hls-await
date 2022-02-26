@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/mattn/go-tty"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
 func scanKeys(ctx context.Context) {
+	log := logger.Entry(ctx)
 	tty, err := tty.OpenDevice("/dev/stdin")
 	if err != nil {
 		return // child process will fail
@@ -23,7 +25,7 @@ func scanKeys(ctx context.Context) {
 		}
 		h, ok := keyMap[r]
 		if !ok {
-			fmt.Printf("unknown key %d, %s\n", r, string(r))
+			log.Warnf("unknown key %d, %s\n", r, string(r))
 			continue
 		}
 		h.cb(ctx)
@@ -45,26 +47,28 @@ func init() {
 			desc: "Dump ansi art frame",
 		},
 		'f': {
-			cb: func(c context.Context) {
-				fmt.Println(currentStream.GetFSM().Current())
+			cb: func(ctx context.Context) {
+				log := logger.Entry(ctx)
+				log.Infof(currentStream.GetFSM().Current())
 			},
 			desc: "Get current state",
 		},
 		'r': {
-			cb: func(c context.Context) {
-				fmt.Println("roku launch")
+			cb: func(ctx context.Context) {
+				log := logger.Entry(ctx)
+				log.Info("roku launch")
 				err := currentStream.LaunchRoku()
 				if err != nil {
-					fmt.Println("roku error", err)
+					log.WithError(err).Warn("roku error")
 				} else {
-					fmt.Println("roku launched")
+					log.Info("roku launched")
 				}
 			},
 			desc: "Launch Stream in Roku Stream Tester",
 		},
 		'u': {
-			cb: func(c context.Context) {
-				currentStream.PushEvent("unsteady")
+			cb: func(ctx context.Context) {
+				currentStream.PushEvent(ctx, "unsteady")
 			},
 			desc: "Push an unsteady event", // FIXME remove
 		},

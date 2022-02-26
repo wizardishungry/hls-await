@@ -17,7 +17,6 @@ func InitWorker() worker.Worker {
 }
 
 func WithWorker(w worker.Worker) StreamOption {
-	// TODO: allow in-process workers
 	return func(s *Stream) error {
 		s.worker = w
 		return nil

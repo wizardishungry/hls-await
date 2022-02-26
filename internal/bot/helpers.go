@@ -1,8 +1,10 @@
 package bot
 
 import (
+	"context"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/pkg/errors"
 )
@@ -26,7 +28,8 @@ func getLastTweet(c *twitter.Client) (int64, time.Time, error) {
 	return tw.ID, tm, nil
 }
 
-func (b *Bot) getLastTweetMaybe() {
+func (b *Bot) getLastTweetMaybe(ctx context.Context) {
+	log := logger.Entry(ctx)
 	id, tm, err := getLastTweet(b.client)
 	if err != nil {
 		log.WithError(err).Warn("getLastTweet")

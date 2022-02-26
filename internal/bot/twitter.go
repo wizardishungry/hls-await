@@ -11,15 +11,13 @@ import (
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/imagescore"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
-
-var log *logrus.Logger = logrus.New() // TODO move onto struct
 
 const (
 	TWITTER_CONSUMER_KEY    = "TWITTER_CONSUMER_KEY"
@@ -88,7 +86,7 @@ func NewBot() *Bot {
 
 func (b *Bot) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
-	b.getLastTweetMaybe()
+	b.getLastTweetMaybe(ctx)
 	g.Go(func() error { return b.consumeImages(ctx) })
 	return g.Wait()
 }
@@ -98,6 +96,7 @@ func (b *Bot) Chan() chan<- image.Image {
 }
 
 func (b *Bot) consumeImages(ctx context.Context) error {
+	log := logger.Entry(ctx)
 
 	b.bulkScorer = imagescore.NewBulkScore(ctx,
 		func() imagescore.ImageScorer {
@@ -137,6 +136,8 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 }
 
 func (b *Bot) maybeDoPost(ctx context.Context) error {
+	log := logger.Entry(ctx)
+
 	const mimeType = "image/png"
 	if len(b.images) < numImages+2 {
 		log.WithField("num_images", len(b.images)).Info("not enough images to post")

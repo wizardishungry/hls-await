@@ -7,9 +7,13 @@ import (
 	"net/http/cookiejar"
 	"net/http/httputil"
 	"net/url"
+
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 )
 
 func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error) {
+	log := logger.Entry(ctx)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -49,7 +53,8 @@ func (s *Stream) httpGet(ctx context.Context, url string) (*http.Response, error
 	return resp, err
 }
 
-func (s *Stream) NewHttpClient() *http.Client {
+func (s *Stream) NewHttpClient(ctx context.Context) *http.Client {
+	log := logger.Entry(ctx)
 	var err error
 	client := *http.DefaultClient
 	client.Jar, err = cookiejar.New(nil)

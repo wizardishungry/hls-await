@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/pkg/errors"
@@ -24,6 +25,7 @@ var (                    // TODO move into struct
 )
 
 func (s *Stream) consumeImages(ctx context.Context) error {
+	log := logger.Entry(ctx)
 
 	oneShot := false
 	for {
@@ -92,9 +94,9 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				if distance >= s.flags.Threshold {
 					log.Infof("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold) // TODO convert to Trace
 					firstHash = hash
-					s.PushEvent("unsteady")
+					s.PushEvent(ctx, "unsteady")
 				} else {
-					s.PushEvent("steady")
+					s.PushEvent(ctx, "steady")
 				}
 				return nil
 			})

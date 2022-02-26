@@ -1,6 +1,7 @@
 package segment
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/draw"
@@ -10,18 +11,19 @@ import (
 	"unsafe"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/charlestamz/goav/avcodec"
 	"github.com/charlestamz/goav/avformat"
 	"github.com/charlestamz/goav/avutil"
 	"github.com/charlestamz/goav/swscale"
 	old_avutil "github.com/giorgisio/goav/avutil"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 const minImages = 4
 
 type GoAV struct {
+	Context        context.Context
 	VerboseDecoder bool
 	RecvUnixMsg    bool // use a secondary unix socket to receive file descriptors in priv sep mode
 	FDs            chan uintptr
@@ -30,15 +32,15 @@ type GoAV struct {
 var pngEncoder = &png.Encoder{
 	CompressionLevel: png.NoCompression,
 }
-var log *logrus.Logger = logrus.New() // TODO move onto struct
 
 var _ Handler = &GoAV{}
 
 var onceAvcodecRegisterAll sync.Once
 
 func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
-
-	defer func() { fractionImages(resp, err) }()
+	ctx := goav.Context
+	log := logger.Entry(ctx)
+	defer func() { fractionImages(ctx, resp, err) }()
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
@@ -233,7 +235,8 @@ func goavError(response int) error {
 	return errors.New(avutil.AvStrerr(response))
 }
 
-func fractionImages(resp *Response, err error) {
+func fractionImages(ctx context.Context, resp *Response, err error) {
+	log := logger.Entry(ctx)
 	if err == nil && resp != nil {
 		initLen := len(resp.RawImages)
 		limitImageCount := float64(initLen) * bot.ImageFraction

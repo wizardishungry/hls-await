@@ -1,10 +1,11 @@
 package stream
 
 import (
-	"fmt"
+	"context"
 	"sync/atomic"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/looplab/fsm"
 )
 
@@ -14,14 +15,15 @@ type FSM struct {
 	Target chan string
 }
 
-func (s *Stream) PushEvent(str string) {
-	fmt.Println("pushEvent", str) // FIXME convert to trace
+func (s *Stream) PushEvent(ctx context.Context, str string) {
+	log := logger.Entry(ctx)
+	log.Trace("pushEvent", str)
 	select {
 	case s.fsm.Target <- str:
 	case <-time.After(time.Second):
-		fmt.Println("pushEvent hung")
+		log.Warn("pushEvent hung")
 	}
-	fmt.Println("pushEvent done", str) // FIXME convert to trace
+	log.Trace("pushEvent done", str)
 }
 
 //go:generate sh -c "cd ../../ && go run ./... -dump-fsm | dot -Nmargin=0.8 -s144 -Tsvg /dev/stdin -o fsm.svg"
@@ -29,7 +31,8 @@ func (s *Stream) GetFSM() *fsm.FSM {
 	return s.fsm.FSM
 }
 
-func (s *Stream) newFSM() *FSM {
+func (s *Stream) newFSM(ctx context.Context) *FSM {
+	log := logger.Entry(ctx)
 	f := FSM{
 		FSM: fsm.NewFSM(
 			"undefined",
@@ -56,7 +59,7 @@ func (s *Stream) newFSM() *FSM {
 					}
 				},
 				"after_event": func(e *fsm.Event) {
-					// fmt.Println("event", e.Event) // TODO convert to Debug
+					log.Debug("event", e.Event)
 					if e.Src != e.Dst {
 						log.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
 						up := e.Dst == "up"

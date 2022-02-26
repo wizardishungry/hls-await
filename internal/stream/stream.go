@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	my_roku "github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
@@ -20,15 +21,12 @@ import (
 	"jonwillia.ms/roku"
 )
 
-var log *logrus.Logger = logrus.New() // TODO move onto struct
-func init() {
-	log.Level = logrus.DebugLevel
-}
-
 type StreamOption func(s *Stream) error
 
 func NewStream(opts ...StreamOption) (*Stream, error) {
+
 	s := newStream()
+
 	for _, opt := range opts {
 		err := opt(s)
 		if err != nil {
@@ -36,7 +34,6 @@ func NewStream(opts ...StreamOption) (*Stream, error) {
 		}
 	}
 
-	s.fsm = s.newFSM()
 	if !s.flags.Worker {
 		target, err := s.url.Parse("/")
 		if err != nil {
@@ -83,7 +80,6 @@ func newStream() *Stream {
 		imageChan:  make(chan image.Image, 100), // TODO magic size
 		segmentMap: make(map[url.URL]struct{}),
 	}
-	s.client = s.NewHttpClient()
 	return s
 }
 func (s *Stream) close() error { // TODO once
@@ -95,12 +91,22 @@ func (s *Stream) OneShot() chan<- struct{} { return s.oneShot }
 
 func (s *Stream) Run(ctx context.Context) error {
 
+	log := logger.Entry(ctx)
+	level, err := logrus.ParseLevel(s.flags.LogLevel)
+	if err != nil {
+		return err
+	}
+	log.Logger.SetLevel(level)
+
+	s.fsm = s.newFSM(ctx)
+	s.client = s.NewHttpClient(ctx)
+
 	if s.flags.DumpFSM {
 		fmt.Println(fsm.Visualize(s.GetFSM()))
 		os.Exit(0)
 	}
 
-	err := s.worker.Start(ctx)
+	err = s.worker.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("%T.Start %w", s.worker, err)
 	}
@@ -115,12 +121,14 @@ func (s *Stream) Run(ctx context.Context) error {
 }
 
 func (s *Stream) processPlaylist(ctx context.Context) error {
+	log := logger.Entry(ctx)
+
 	pollDuration := minPollDuration
 	for {
 		start := time.Now()
 		mediapl, err := s.doPlaylist(ctx, s.url)
 		if err != nil {
-			log.Println("doPlaylist", err)
+			log.WithError(err).Error("doPlaylist")
 			pollDuration = minPollDuration
 		} else {
 			if dur := mediapl.TargetDuration; dur > 0 {
@@ -143,14 +151,14 @@ func (s *Stream) processPlaylist(ctx context.Context) error {
 			sleepFor = minPollDuration
 		}
 		timer := time.NewTimer(pollDuration)
-		log.Println("processPlaylist elapsed time", elapsed)
-		log.Println("processPlaylist pollDuration", pollDuration)
+		log.Info("processPlaylist elapsed time", elapsed)
+		log.Info("processPlaylist pollDuration", pollDuration)
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
 		}
-		log.Println("processPlaylist sleeping for", sleepFor)
+		log.Info("processPlaylist sleeping for", sleepFor)
 		select {
 		case <-ctx.Done():
 			return nil

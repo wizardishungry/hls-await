@@ -2,11 +2,15 @@ package stream
 
 import (
 	"flag"
+	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 type flags struct {
 	URL            string
 	DumpHttp       bool
+	LogLevel       string
 	VerboseDecoder bool
 	AnsiArt        int
 	Threshold      int
@@ -40,7 +44,15 @@ func getFlags() *flags {
 	flag.BoolVar(&f.OneShot, "one-shot", true, "render an ansi frame when entering up state")
 	flag.BoolVar(&f.Worker, "worker", false, "used by process separation, not for end user use")
 	flag.BoolVar(&f.Privsep, "privsep", true, "enable process separation")
+	flag.StringVar(&f.LogLevel, "loglevel", "debug", strings.Join(levels, " | "))
 	return &f
 }
 
 var someFlags = getFlags()
+var levels = func() []string {
+	parts := []string{}
+	for _, s := range logrus.AllLevels {
+		parts = append(parts, s.String())
+	}
+	return parts
+}()

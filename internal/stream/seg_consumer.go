@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/grafov/m3u8"
 	"github.com/pkg/errors"
@@ -15,6 +16,8 @@ import (
 const segmentMaxDuration = 30 * time.Second
 
 func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
+	log := logger.Entry(ctx)
+
 	count := 0
 	for _, seg := range mediapl.Segments {
 		if seg == nil {
@@ -54,7 +57,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			defer cancel()
 			start := time.Now()
 			name := tsURL.String()
-			log.Println("getting", name)
+			log.Info("getting", name)
 			tsResp, err := s.httpGet(ctx, name)
 			if err != nil {
 				return errors.Wrap(err, "httpGet")
@@ -111,6 +114,6 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			log.WithError(err).Error("processing segment")
 		}
 	}
-	log.Println("segs processed", segCount)
+	log.Info("segs processed", segCount)
 	return nil
 }

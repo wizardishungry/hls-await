@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/unixmsg"
 	"github.com/pkg/errors"
@@ -25,12 +26,13 @@ func (c *Child) Start(ctx context.Context) error {
 	return retErr
 }
 
-func (c *Child) Restart() {
+func (c *Child) Restart(ctx context.Context) {
+	log := logger.Entry(ctx)
 	log.Fatalf("We should never be restarting a child worker.")
 }
 
 func (c *Child) runWorker(ctx context.Context) error {
-	// log = log.WithField("child", true)
+	log := logger.Entry(ctx)
 	f, err := fromFD(WORKER_FD)
 	if err != nil {
 		return err
@@ -60,7 +62,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 			defer wg.Wait()
 
 			server := rpc.NewServer()
-			segApi := c.Handler().(*segment.GoAV)
+			segApi := c.Handler(ctx).(*segment.GoAV)
 			segApi.FDs = fds
 
 			err = server.Register(segApi)
@@ -117,8 +119,9 @@ func (c *Child) runWorker(ctx context.Context) error {
 	return nil
 }
 
-func (c *Child) Handler() segment.Handler {
+func (c *Child) Handler(ctx context.Context) segment.Handler {
 	return &segment.GoAV{
+		Context:        ctx,
 		VerboseDecoder: true, // TODO pass flags
 		RecvUnixMsg:    true,
 	}

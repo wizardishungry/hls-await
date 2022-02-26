@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
 	"github.com/sirupsen/logrus"
 )
@@ -11,8 +12,8 @@ import (
 const workerMaxDuration = 10 * time.Second // if the worker appears to be stalled
 
 func (s *Stream) ProcessSegment(ctx context.Context, request *segment.Request) error {
-
-	h := s.worker.Handler()
+	log := logger.Entry(ctx)
+	h := s.worker.Handler(ctx)
 
 	timeOut := time.NewTimer(workerMaxDuration)
 	workerDone := make(chan struct{})
@@ -22,7 +23,7 @@ func (s *Stream) ProcessSegment(ctx context.Context, request *segment.Request) e
 		case <-ctx.Done():
 		case <-workerDone:
 		case <-timeOut.C:
-			s.worker.Restart()
+			s.worker.Restart(ctx)
 		}
 		if !timeOut.Stop() {
 			<-timeOut.C

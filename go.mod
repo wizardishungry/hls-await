@@ -20,6 +20,7 @@ require (
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220222200937-f2425489ef4c
+	golang.org/x/tools v0.1.9
 	jonwillia.ms/roku v1.3.2
 )
 
@@ -34,7 +35,6 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	golang.org/x/image v0.0.0-20210504121937-7319ad40d33e // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
-	golang.org/x/tools v0.1.9 // indirect
 )
 
 // https://github.com/dghubble/go-twitter/pull/148

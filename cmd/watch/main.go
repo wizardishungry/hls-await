@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/stream"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
@@ -19,11 +20,11 @@ import (
 const streamURL = "https://tv.nknews.org/tvhls/stream.m3u8"
 
 var (
-	log           = logrus.New()
 	currentStream *stream.Stream
 )
 
 func main() {
+	log := logrus.New().WithFields(nil)
 	flag.Parse()
 
 	args := flag.Args()
@@ -34,7 +35,10 @@ func main() {
 	b := bot.NewBot()
 	w := stream.InitWorker()
 
-	ctx, ctxCancel := signal.NotifyContext(context.Background(),
+	ctx := context.Background()
+	ctx = logger.WithLogEntry(ctx, log)
+
+	ctx, ctxCancel := signal.NotifyContext(ctx,
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGTERM,
 		os.Interrupt, os.Kill,
 	)
@@ -57,6 +61,14 @@ func main() {
 	}
 
 	for _, arg := range args {
+		log := log
+		if len(args) > 1 {
+			log = log.WithField("playlist", arg)
+		} else {
+			log = log.WithFields(logrus.Fields{})
+		}
+		ctx := logger.WithLogEntry(ctx, log)
+
 		u, err := url.Parse(arg)
 
 		if err != nil || u.Scheme == "" {
@@ -72,7 +84,7 @@ func main() {
 		if err != nil {
 			log.WithError(err).Fatal("stream.NewStream")
 		}
-		log.Infof("monitoring %+v", u)
+		log.Info("monitoring")
 
 		g.Go(func() error {
 			return s.Run(ctx)
