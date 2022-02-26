@@ -7,8 +7,10 @@ import (
 	"image/png"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/imagescore"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
 	"github.com/joho/godotenv"
@@ -69,6 +71,7 @@ type Bot struct {
 	images     []image.Image
 	lastPosted time.Time
 	lastID     int64
+	bulkScorer *imagescore.BulkScore
 }
 
 func NewBot() *Bot {
@@ -95,6 +98,12 @@ func (b *Bot) Chan() chan<- image.Image {
 }
 
 func (b *Bot) consumeImages(ctx context.Context) error {
+
+	b.bulkScorer = imagescore.NewBulkScore(ctx,
+		func() imagescore.ImageScorer {
+			return imagescore.NewJpegScorer()
+		},
+	)
 
 	firstInterval := updateInterval
 	if !b.lastPosted.IsZero() {
@@ -139,11 +148,37 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 			b.images = b.images[limit:]
 		}
 	}()
-	offset := len(b.images) / (numImages + 2)
-	images := []image.Image{}
 
+	inputImages := []image.Image{}
+
+	g, ctx := errgroup.WithContext(ctx)
+	var inputImagesMutex sync.Mutex
+	for _, i := range b.images {
+		img := i
+		g.Go(func() error {
+			score, err := b.bulkScorer.ScoreImage(ctx, img)
+			if err != nil {
+				return err
+			}
+			const minScore = 0.012 // TODO not great: jpeg specific
+			if score < minScore {
+				return nil
+			}
+			inputImagesMutex.Lock()
+			defer inputImagesMutex.Unlock()
+			inputImages = append(inputImages, img)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	offset := len(inputImages) / (numImages + 2)
+	images := []image.Image{}
 	for i := 0; i < numImages; i++ {
-		img := b.images[(i+1)*offset]
+		img := inputImages[(i+1)*offset]
 		images = append(images, img)
 	}
 
@@ -157,7 +192,6 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 
 	log.Info("uploading pics")
 
-	g, ctx := errgroup.WithContext(ctx)
 	for i, img := range images {
 		img := img
 		i := i
@@ -175,8 +209,8 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 			return nil
 		})
 	}
-	err := g.Wait()
-	if err != nil {
+
+	if err := g.Wait(); err != nil {
 		return err
 	}
 

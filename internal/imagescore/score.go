@@ -1,10 +1,13 @@
 package imagescore
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"image"
-	"image/png"
+	"image/color"
+	"image/color/palette"
+	"image/draw"
 	"io"
 )
 
@@ -14,32 +17,6 @@ func ScoreImage(ctx context.Context, img image.Image) (float64, error) {
 
 type ImageScorer interface {
 	ScoreImage(ctx context.Context, img image.Image) (float64, error)
-}
-
-type PngScorer struct{}
-
-var _ ImageScorer = &PngScorer{}
-
-func NewPngScorer() *PngScorer { return &PngScorer{} }
-
-func (ps *PngScorer) ScoreImage(ctx context.Context, img image.Image) (float64, error) {
-	enc := png.Encoder{
-		CompressionLevel: png.BestSpeed,
-		// BufferPool: , // TOOO: try un/shared buffer pool across threads - should this be the same pool as for the output buffer
-	}
-
-	buf := &discardCounter{}
-
-	err := enc.Encode(buf, img)
-	if err != nil {
-		return 0, err
-	}
-
-	origSize, err := uncompressedSize(img)
-	if err != nil {
-		return 0, err
-	}
-	return float64(buf.count) / origSize, nil
 }
 
 type discardCounter struct {
@@ -54,7 +31,7 @@ func (dc *discardCounter) Write(p []byte) (n int, err error) {
 }
 
 // maybe we don't want to use this in real code paths since we can hope the input images have all the same dimensions and depth
-func uncompressedSize(img image.Image) (float64, error) {
+func uncompressedImageSize(img image.Image) (float64, error) {
 	buf := &discardCounter{}
 	err := gob.NewEncoder(buf).Encode(&img)
 	if err != nil {
@@ -62,6 +39,24 @@ func uncompressedSize(img image.Image) (float64, error) {
 	}
 	return float64(buf.count), nil
 }
+
+func imageBytes(img image.Image) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	err := gob.NewEncoder(buf).Encode(&img)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func downSampleImage(img image.Image) image.Image {
+	out := image.NewPaletted(img.Bounds(), palette.WebSafe)
+	draw.Draw(out, out.Rect, img, image.Point{}, draw.Over)
+	return out
+}
+
 func init() {
 	gob.Register(&image.RGBA{}) // needed because this is contained in interface
+	gob.Register(&color.RGBA{})
+	gob.Register(&image.Paletted{})
 }

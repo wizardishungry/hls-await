@@ -15,16 +15,33 @@ func TestScoringAlgos(t *testing.T) {
 	images := getTestingImages(t)
 	fmt.Println(images)
 	testCases := []struct {
-		desc string
+		desc   string
+		scoreF func() ImageScorer
 	}{
 		{
-			desc: "",
+			desc:   "png",
+			scoreF: func() ImageScorer { return NewPngScorer() },
+		},
+		{
+			desc:   "gzip",
+			scoreF: func() ImageScorer { return NewGzipScorer() },
+		},
+		{
+			desc:   "jpeg",
+			scoreF: func() ImageScorer { return NewJpegScorer() },
+		},
+		{
+			desc:   "gif",
+			scoreF: func() ImageScorer { return NewGifScorer() },
 		},
 	}
-	for _, tC := range testCases {
+
+	for _, tCuncap := range testCases {
+		tC := tCuncap
 		t.Run(tC.desc, func(t *testing.T) {
+			// t.Parallel()
 			ctx := context.Background()
-			scorer := NewPngScorer()
+			scorer := tC.scoreF()
 
 			for class, imageSlice := range images {
 				for filename, img := range imageSlice {
@@ -32,7 +49,7 @@ func TestScoringAlgos(t *testing.T) {
 					if err != nil {
 						t.Fatalf("ScoreImage(%s/%s): %v", class, filename, err)
 					}
-					fmt.Printf("%s %s: %f\n", class, filename, score)
+					fmt.Printf("%s: %s/%s %f\n", tC.desc, class, filename, score)
 				}
 			}
 

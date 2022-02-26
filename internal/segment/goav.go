@@ -211,9 +211,8 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 							constraint.Max.Y = Ydim
 						}
 						// convert to RGBA because it serializes easily
-						img := image.NewRGBA(constraint) // TODO: no need to convert to RGBA when running in-process (is there a way to crop with a zero copy?)
+						img := image.NewRGBA(constraint) // TODO: no need to convert to RGBA when running in-process & crop with a zero copy (img.SubImage())
 						draw.Draw(img, yimg.Rect, yimg, image.Point{}, draw.Over)
-
 						resp.RawImages = append(resp.RawImages, img)
 
 						frameNumber++
