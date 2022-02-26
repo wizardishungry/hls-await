@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+//go:generate sh -c "go test ./... -run '^$' -benchmem -bench . |tee benchresult.txt"
+
 func BenchmarkBulk(b *testing.B) {
 	const (
 		xDim = 720
