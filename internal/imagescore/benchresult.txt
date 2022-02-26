@@ -2,13 +2,13 @@ goos: linux
 goarch: amd64
 pkg: github.com/WIZARDISHUNGRY/hls-await/internal/imagescore
 cpu: AMD Ryzen 7 2700X Eight-Core Processor         
-BenchmarkBulkScores/png-16         	     562	   2076350 ns/op	 9549331 B/op	  415013 allocs/op
-BenchmarkBulkScores/gzip-16        	     544	   2200618 ns/op	11194103 B/op	  414839 allocs/op
-BenchmarkBulkScores/jpeg-16        	     415	   2864503 ns/op	 8450623 B/op	  414768 allocs/op
-BenchmarkBulkScores/gif-16         	      33	  38745136 ns/op	 5064063 B/op	      56 allocs/op
-BenchmarkScoreImage/png-16         	      52	  22510937 ns/op	 7396423 B/op	  414995 allocs/op
-BenchmarkScoreImage/gzip-16        	      46	  25777060 ns/op	11137184 B/op	  414843 allocs/op
-BenchmarkScoreImage/jpeg-16        	      36	  31633489 ns/op	 7717403 B/op	  414771 allocs/op
-BenchmarkScoreImage/gif-16         	       4	 264123628 ns/op	 4689956 B/op	      69 allocs/op
+BenchmarkBulkScores/png-16         	     363	   2793110 ns/op	 7998886 B/op	  414986 allocs/op
+BenchmarkBulkScores/gzip-16        	     370	   2923739 ns/op	10643389 B/op	  414837 allocs/op
+BenchmarkBulkScores/jpeg-16        	     322	   3426245 ns/op	 7914795 B/op	  414767 allocs/op
+BenchmarkBulkScores/gif-16         	      32	  31560247 ns/op	 4530208 B/op	      56 allocs/op
+BenchmarkScoreImage/png-16         	      60	  17636882 ns/op	 7535356 B/op	  414993 allocs/op
+BenchmarkScoreImage/gzip-16        	      57	  17894873 ns/op	 9757595 B/op	  414835 allocs/op
+BenchmarkScoreImage/jpeg-16        	      40	  25551839 ns/op	 7234352 B/op	  414767 allocs/op
+BenchmarkScoreImage/gif-16         	       4	 257909831 ns/op	 4272570 B/op	      66 allocs/op
 PASS
-ok  	github.com/WIZARDISHUNGRY/hls-await/internal/imagescore	18.458s
+ok  	github.com/WIZARDISHUNGRY/hls-await/internal/imagescore	13.029s
