@@ -1,0 +1,29 @@
+benchmark                       old ns/op     new ns/op     delta
+BenchmarkBulkScores/png-16      2493090       2076350       -16.72%
+BenchmarkBulkScores/gzip-16     2484360       2200618       -11.42%
+BenchmarkBulkScores/jpeg-16     2878381       2864503       -0.48%
+BenchmarkBulkScores/gif-16      32571356      38745136      +18.95%
+BenchmarkScoreImage/png-16      25164971      22510937      -10.55%
+BenchmarkScoreImage/gzip-16     26535963      25777060      -2.86%
+BenchmarkScoreImage/jpeg-16     32378726      31633489      -2.30%
+BenchmarkScoreImage/gif-16      262390852     264123628     +0.66%
+
+benchmark                       old allocs     new allocs     delta
+BenchmarkBulkScores/png-16      415017         415013         -0.00%
+BenchmarkBulkScores/gzip-16     414838         414839         +0.00%
+BenchmarkBulkScores/jpeg-16     414768         414768         +0.00%
+BenchmarkBulkScores/gif-16      57             56             -1.75%
+BenchmarkScoreImage/png-16      415021         414995         -0.01%
+BenchmarkScoreImage/gzip-16     414843         414843         +0.00%
+BenchmarkScoreImage/jpeg-16     414771         414771         +0.00%
+BenchmarkScoreImage/gif-16      68             69             +1.47%
+
+benchmark                       old bytes     new bytes     delta
+BenchmarkBulkScores/png-16      9737642       9549331       -1.93%
+BenchmarkBulkScores/gzip-16     11094851      11194103      +0.89%
+BenchmarkBulkScores/jpeg-16     8411787       8450623       +0.46%
+BenchmarkBulkScores/gif-16      5196004       5064063       -2.54%
+BenchmarkScoreImage/png-16      9940276       7396423       -25.59%
+BenchmarkScoreImage/gzip-16     10968736      11137184      +1.54%
+BenchmarkScoreImage/jpeg-16     7486809       7717403       +3.08%
+BenchmarkScoreImage/gif-16      4689964       4689956       -0.00%

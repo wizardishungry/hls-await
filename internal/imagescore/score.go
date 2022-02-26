@@ -11,10 +11,6 @@ import (
 	"io"
 )
 
-func ScoreImage(ctx context.Context, img image.Image) (float64, error) {
-	return 0, nil
-}
-
 type ImageScorer interface {
 	ScoreImage(ctx context.Context, img image.Image) (float64, error)
 }
