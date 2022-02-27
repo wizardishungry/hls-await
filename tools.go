@@ -1,5 +1,5 @@
 package hlsawait
 
 import (
-	_ "golang.org/x/tools/cmd/benchcmp"
+	_ "golang.org/x/tools/benchmark/parse"
 )

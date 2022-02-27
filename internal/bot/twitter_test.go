@@ -28,3 +28,9 @@ func TestResume(t *testing.T) {
 	}
 	fmt.Println(u, tm)
 }
+
+func TestTZ(t *testing.T) {
+	n := time.Now().In(loc)
+	fmt.Println(n.Format(time.Kitchen))
+	// TODO: https://en.wikipedia.org/wiki/Public_holidays_in_North_Korea
+}

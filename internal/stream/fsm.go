@@ -59,7 +59,7 @@ func (s *Stream) newFSM(ctx context.Context) *FSM {
 					}
 				},
 				"after_event": func(e *fsm.Event) {
-					log.Debug("event", e.Event)
+					log.Tracef("event", e.Event)
 					if e.Src != e.Dst {
 						log.Printf("🏳[%s -> %s] %s\n", e.Src, e.Dst, e.Event)
 						up := e.Dst == "up"

@@ -3,6 +3,7 @@ package bot
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/png"
 	"path/filepath"
@@ -117,6 +118,8 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			b.images = append(b.images, img)
 		case <-ticker.C:
 			err := b.maybeDoPost(ctx) // TODO retry
+			// TODO: this should run in a goroutine and steal the images from the struct
+			// running the image scoring+uploading is slow as crap
 			if err != nil {
 				log.WithError(err).Warn("maybeDoPost")
 			}
@@ -126,17 +129,20 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 }
 
 func (b *Bot) calcUpdateInterval(ctx context.Context) (dur time.Duration) {
+	log := logger.Entry(ctx)
 	defer func() {
-		logger.Entry(ctx).WithField("tweet_in", dur).Debug("calcUpdateInterval")
+		log.WithField("tweet_in", dur).Debug("calcUpdateInterval")
 	}()
 	if !b.lastPosted.IsZero() {
 		// try to post something quickly after manual restarts
 		durSinceLast := time.Now().Sub(b.lastPosted)
 		interval := updateInterval - durSinceLast
-		if interval < updateInterval {
-			interval = updateInterval
+		if interval < minUpdateInterval {
+			interval = minUpdateInterval
 		}
+		return interval
 	}
+	log.Warn("no last posted")
 	return minUpdateInterval
 }
 
@@ -158,7 +164,10 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	inputImages := []image.Image{}
 
 	g, ctx := errgroup.WithContext(ctx)
-	var inputImagesMutex sync.Mutex
+	var (
+		inputImagesMutex sync.Mutex
+		elimCount        int
+	)
 	for _, i := range b.images {
 		img := i
 		g.Go(func() error {
@@ -166,13 +175,15 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			inputImagesMutex.Lock()
+			defer inputImagesMutex.Unlock()
+
 			const minScore = 0.012 // TODO not great: jpeg specific
 			if score < minScore {
+				elimCount++
 				log.WithField("score", score).Trace("eliminated image")
 				return nil
 			}
-			inputImagesMutex.Lock()
-			defer inputImagesMutex.Unlock()
 			inputImages = append(inputImages, img)
 			return nil
 		})
@@ -181,6 +192,7 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	if err := g.Wait(); err != nil {
 		return err
 	}
+	log.WithField("elim_count", elimCount).Debug("eliminated images")
 
 	offset := len(inputImages) / (numImages + 2)
 	images := []image.Image{}
@@ -222,7 +234,16 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	}
 
 	log.Info("posting status")
-	t, _, err := b.client.Statuses.Update("", params)
+	status := ""
+
+	if params.InReplyToStatusID != 0 {
+		n := time.Now().In(loc)
+		status = fmt.Sprintf("It's currently %s in Pyongyang & KCTV is on the air!", n.Format(time.Kitchen))
+	}
+
+	params.Status = status
+
+	t, _, err := b.client.Statuses.Update(status, params)
 	if err != nil {
 		return errors.Wrap(err, "Statuses.Update")
 	}

@@ -52,7 +52,7 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 
 	onceAvcodecRegisterAll.Do(func() {
 		avcodec.AvcodecRegisterAll() // only instantiate if we build a GoAV
-		// go func() { // put this in here to test ffmpeg crases
+		// go func() { // put this in here to test ffmpeg crashes
 		// 	time.Sleep(10 * time.Second)
 		// 	panic("test restarting")
 		// }()
