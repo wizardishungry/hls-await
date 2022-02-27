@@ -258,7 +258,7 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image
 	log.Info("posting status")
 	status := ""
 
-	if params.InReplyToStatusID != 0 {
+	if params.InReplyToStatusID == 0 {
 		n := time.Now().In(loc)
 		status = fmt.Sprintf("It's currently %s in Pyongyang & KCTV is on the air!", n.Format(time.Kitchen))
 	}
