@@ -33,6 +33,7 @@ const (
 	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
 	replyWindow           = 3 * updateInterval
 	ImageFraction         = (1 / 25.0) // this is the proportion of images that make it from the decoder to here, aiming for 1/s (@25fps)
+	postTimeout           = time.Minute
 )
 
 var (
@@ -67,7 +68,6 @@ func newClient() *twitter.Client {
 type Bot struct {
 	client     *twitter.Client
 	c          chan image.Image
-	images     []image.Image
 	lastPosted time.Time
 	lastID     int64
 	bulkScorer *imagescore.BulkScore
@@ -77,7 +77,6 @@ func NewBot() *Bot {
 	b := &Bot{
 		client: newClient(),
 		c:      make(chan image.Image, 100), // TODO magic number
-		images: make([]image.Image, 0, maxQueuedImages),
 	}
 	if b.client == nil {
 		return nil
@@ -105,8 +104,14 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 		},
 	)
 
+	newImageSlice := func() []image.Image { return make([]image.Image, 0, maxQueuedImages) }
+
+	images := newImageSlice()
+
 	ticker := time.NewTicker(b.calcUpdateInterval(ctx))
 	defer ticker.Stop()
+	unusedImagesC := make(chan []image.Image, 1)
+	defer close(unusedImagesC)
 	for {
 		select {
 		case <-ctx.Done():
@@ -115,15 +120,33 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			b.images = append(b.images, img)
+			images = append(images, img)
+		case imgs := <-unusedImagesC:
+			log.Warn("unused images retained")
+			images = append(imgs, images...) // unused images get moved to the front
 		case <-ticker.C:
-			err := b.maybeDoPost(ctx) // TODO retry
-			// TODO: this should run in a goroutine and steal the images from the struct
-			// running the image scoring+uploading is slow as crap
-			if err != nil {
-				log.WithError(err).Warn("maybeDoPost")
-			}
-			ticker.Reset(b.calcUpdateInterval(ctx))
+			ctx, cancel := context.WithTimeout(ctx, postTimeout)
+			srcImages := images
+			images = newImageSlice()
+			go func() {
+				defer cancel()
+				unusedImages, err := b.maybeDoPost(ctx, srcImages)
+				// this runs in a goroutine because image scoring+uploading is slow as crap
+				if err != nil {
+					log.WithError(err).Warn("maybeDoPost")
+				}
+				select {
+				case unusedImagesC <- unusedImages:
+				default:
+					log.Warn("unused images discarded")
+				}
+				ticker.Reset(b.calcUpdateInterval(ctx))
+			}()
+		}
+		limit := len(images) - maxQueuedImages
+		if limit > 0 {
+			log.WithField("num_images", len(images)).Info("eliminated images (over maxQueuedImages)")
+			images = images[limit:]
 		}
 	}
 }
@@ -146,58 +169,57 @@ func (b *Bot) calcUpdateInterval(ctx context.Context) (dur time.Duration) {
 	return minUpdateInterval
 }
 
-func (b *Bot) maybeDoPost(ctx context.Context) error {
+func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image.Image, error) {
 	log := logger.Entry(ctx)
 
 	const mimeType = "image/png"
-	if len(b.images) < numImages+2 {
-		log.WithField("num_images", len(b.images)).Info("not enough images to post")
-		return nil
+	if len(srcImages) < numImages+2 {
+		log.WithField("num_images", len(srcImages)).Info("not enough images to post")
+		return srcImages, nil
 	}
-	defer func() {
-		limit := len(b.images) - maxQueuedImages
-		if limit > 0 {
-			b.images = b.images[limit:]
-		}
-	}()
-
-	inputImages := []image.Image{}
-
 	g, ctx := errgroup.WithContext(ctx)
-	var (
-		inputImagesMutex sync.Mutex
-		elimCount        int
-	)
-	for _, i := range b.images {
-		img := i
-		g.Go(func() error {
-			score, err := b.bulkScorer.ScoreImage(ctx, img)
-			if err != nil {
-				return err
-			}
-			inputImagesMutex.Lock()
-			defer inputImagesMutex.Unlock()
 
-			const minScore = 0.012 // TODO not great: jpeg specific
-			if score < minScore {
-				elimCount++
-				log.WithField("score", score).Trace("eliminated image")
+	{
+		inputImages := []image.Image{}
+
+		var (
+			inputImagesMutex sync.Mutex
+			elimCount        int
+		)
+		log.WithField("num_images", len(srcImages)).Info("bulk scoring in progress")
+		for _, i := range srcImages {
+			img := i
+			g.Go(func() error {
+				score, err := b.bulkScorer.ScoreImage(ctx, img)
+				if err != nil {
+					return err
+				}
+				inputImagesMutex.Lock()
+				defer inputImagesMutex.Unlock()
+
+				const minScore = 0.012 // TODO not great: jpeg specific
+				if score < minScore {
+					elimCount++
+					log.WithField("score", score).Trace("eliminated image")
+					return nil
+				}
+				inputImages = append(inputImages, img)
 				return nil
-			}
-			inputImages = append(inputImages, img)
-			return nil
-		})
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			return nil, err // eliminate images that caused bulkscorer to fail
+		}
+		log.WithField("elim_count", elimCount).Debug("bulk scoring eliminated images")
+		srcImages = inputImages // overwrite so we can potentially prune
 	}
 
-	if err := g.Wait(); err != nil {
-		return err
-	}
-	log.WithField("elim_count", elimCount).Debug("eliminated images")
-
-	offset := len(inputImages) / (numImages + 2)
+	// Try to pick a good spread of images
+	offset := len(srcImages) / (numImages + 2)
 	images := []image.Image{}
 	for i := 0; i < numImages; i++ {
-		img := inputImages[(i+1)*offset]
+		img := srcImages[(i+1)*offset]
 		images = append(images, img)
 	}
 
@@ -210,7 +232,7 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	}
 
 	log.Info("uploading pics")
-
+	// TODO retry
 	for i, img := range images {
 		img := img
 		i := i
@@ -230,7 +252,7 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	}
 
 	if err := g.Wait(); err != nil {
-		return err
+		return srcImages, err
 	}
 
 	log.Info("posting status")
@@ -242,14 +264,15 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 	}
 
 	params.Status = status
-
+	// TODO retry
 	t, _, err := b.client.Statuses.Update(status, params)
 	if err != nil {
-		return errors.Wrap(err, "Statuses.Update")
+		return srcImages, errors.Wrap(err, "Statuses.Update")
 	}
+
+	// These are racey TODO
 	b.lastPosted = time.Now()
 	b.lastID = t.ID
 
-	b.images = b.images[0:0]
-	return nil
+	return nil, nil
 }
