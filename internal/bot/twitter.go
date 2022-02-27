@@ -28,9 +28,11 @@ const (
 
 	updateIntervalMinutes = 10
 	updateInterval        = updateIntervalMinutes * time.Minute
-	minUpdateInterval     = 20 * time.Second                                    // used for tweeting quickly after a manual restart
-	numImages             = 4                                                   // per post
-	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * 2 * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
+	minUpdateInterval     = 20 * time.Second // used for tweeting quickly after a manual restart
+	numImages             = 4                // per post
+	maxQueuedIntervals    = 4
+	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * maxQueuedIntervals * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
+	maxQueuedImagesMult   = 1.5
 	replyWindow           = 3 * updateInterval
 	ImageFraction         = (1 / 25.0) // this is the proportion of images that make it from the decoder to here, aiming for 1/s (@25fps)
 	postTimeout           = time.Minute
@@ -122,8 +124,10 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			}
 			images = append(images, img)
 		case imgs := <-unusedImagesC:
-			log.Warn("unused images retained")
-			images = append(imgs, images...) // unused images get moved to the front
+			if len(imgs) > 0 {
+				log.Warn("unused images retained")
+				images = append(imgs, images...) // unused images get moved to the front
+			}
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(ctx, postTimeout)
 			srcImages := images
@@ -143,9 +147,10 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 				ticker.Reset(b.calcUpdateInterval(ctx))
 			}()
 		}
-		limit := len(images) - maxQueuedImages
+		limit := len(images) - maxQueuedImages*maxQueuedImagesMult
 		if limit > 0 {
-			log.WithField("num_images", len(images)).Info("eliminated images (over maxQueuedImages)")
+			limit := len(images) - maxQueuedImages
+			log.WithField("num_images", limit).Info("eliminated images (over maxQueuedImages)")
 			images = images[limit:]
 		}
 	}
