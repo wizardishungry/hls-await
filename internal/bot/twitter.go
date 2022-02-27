@@ -104,17 +104,7 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 		},
 	)
 
-	firstInterval := updateInterval
-	if !b.lastPosted.IsZero() {
-		// try to post something quickly after manual restarts
-		durSinceLast := time.Now().Sub(b.lastPosted)
-		firstInterval = updateInterval - durSinceLast
-		if firstInterval < minUpdateInterval {
-			firstInterval = minUpdateInterval
-		}
-	}
-
-	ticker := time.NewTicker(firstInterval)
+	ticker := time.NewTicker(b.calcUpdateInterval(ctx))
 	defer ticker.Stop()
 	for {
 		select {
@@ -130,9 +120,24 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			if err != nil {
 				log.WithError(err).Warn("maybeDoPost")
 			}
-			ticker.Reset(updateInterval)
+			ticker.Reset(b.calcUpdateInterval(ctx))
 		}
 	}
+}
+
+func (b *Bot) calcUpdateInterval(ctx context.Context) (dur time.Duration) {
+	defer func() {
+		logger.Entry(ctx).WithField("tweet_in", dur).Debug("calcUpdateInterval")
+	}()
+	if !b.lastPosted.IsZero() {
+		// try to post something quickly after manual restarts
+		durSinceLast := time.Now().Sub(b.lastPosted)
+		interval := updateInterval - durSinceLast
+		if interval < updateInterval {
+			interval = updateInterval
+		}
+	}
+	return minUpdateInterval
 }
 
 func (b *Bot) maybeDoPost(ctx context.Context) error {
@@ -163,6 +168,7 @@ func (b *Bot) maybeDoPost(ctx context.Context) error {
 			}
 			const minScore = 0.012 // TODO not great: jpeg specific
 			if score < minScore {
+				log.WithField("score", score).Trace("eliminated image")
 				return nil
 			}
 			inputImagesMutex.Lock()

@@ -27,6 +27,7 @@ type GoAV struct {
 	VerboseDecoder bool
 	RecvUnixMsg    bool // use a secondary unix socket to receive file descriptors in priv sep mode
 	FDs            chan uintptr
+	DoneCB         func()
 }
 
 var pngEncoder = &png.Encoder{
@@ -38,6 +39,13 @@ var _ Handler = &GoAV{}
 var onceAvcodecRegisterAll sync.Once
 
 func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
+
+	defer func() {
+		if goav.DoneCB != nil {
+			goav.DoneCB()
+		}
+	}()
+
 	ctx := goav.Context
 	log := logger.Entry(ctx)
 	defer func() { fractionImages(ctx, resp, err) }()

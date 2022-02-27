@@ -121,7 +121,7 @@ func newTimer(target *fsm.FSM) chan string {
 							c <- "no_data"
 							continue
 						case nextEvent := <-c:
-							if nextEvent != event {
+							if nextEvent != event && (nextEvent != "steady") {
 								c <- nextEvent
 								return
 							}
