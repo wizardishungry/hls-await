@@ -150,7 +150,8 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 		limit := len(images) - maxQueuedImages*maxQueuedImagesMult
 		if limit > 0 {
 			limit := len(images) - maxQueuedImages
-			log.WithField("num_images", limit).Info("eliminated images (over maxQueuedImages)")
+			log.WithField("num_images", limit).WithField("maxQueuedImages", maxQueuedImages).
+				Info("eliminated images (over maxQueuedImages)")
 			images = images[limit:]
 		}
 	}

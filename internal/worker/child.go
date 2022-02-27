@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/rpc"
 	"os"
@@ -63,7 +62,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 			return float64(b) / 1024 / 1024
 		}
 		getRss := func() (uint64, error) {
-			buf, err := ioutil.ReadFile("/proc/self/statm")
+			buf, err := os.ReadFile("/proc/self/statm")
 			if err != nil {
 				return 0, err
 			}

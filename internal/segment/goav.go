@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"os"
 	"sync"
 	"time"
 	"unsafe"
@@ -70,6 +71,13 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 	if fd <= 0 {
 		return fmt.Errorf("fd is weird %d", fd)
 	}
+
+	defer func() {
+		f := os.NewFile(fd, "whatever")
+		if f != nil {
+			f.Close()
+		}
+	}()
 
 	// file := fmt.Sprintf("pipe:%d", fd)
 	file := fmt.Sprintf("/proc/self/fd/%d", fd) // This is a Linuxism, but it works. Otherwise we get like 10% of images (30 instead of 248)
