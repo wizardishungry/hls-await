@@ -18,9 +18,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	durWaitBeforeStopTheWorld = 2 * time.Second
+	maxConsecutivePanics      = 2
+)
+
 type Child struct {
 	once      sync.Once
-	memstatsC chan struct{}
+	memstatsC chan error
 }
 
 func (c *Child) Start(ctx context.Context) error {
@@ -57,7 +62,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 		listener.Close()
 	}()
 
-	c.memstatsC = make(chan struct{}, 1)
+	c.memstatsC = make(chan error, 1)
 	go func() {
 		bToMb := func(b uint64) float64 {
 			return float64(b) / 1024 / 1024
@@ -81,8 +86,39 @@ func (c *Child) runWorker(ctx context.Context) error {
 			return uint64(rss) * uint64(os.Getpagesize()), err
 		}
 
-		var m runtime.MemStats
+		var (
+			panicCount int
+		)
 		for {
+			var (
+				m   runtime.MemStats
+				err error = nil
+			)
+			timer := time.NewTimer(time.Minute)
+			select {
+			case <-ctx.Done():
+				return
+			case err = <-c.memstatsC: // not in the hot path to avoid stop the world while running
+				if !timer.Stop() {
+					<-timer.C
+				}
+			case <-timer.C:
+			}
+
+			if err != nil {
+				panicCount++
+				l := log.WithError(err).WithField("panic_count", panicCount)
+				h := l.Error
+				if panicCount > maxConsecutivePanics {
+					h = l.Fatal
+				}
+				h("panicCounter")
+			} else {
+				panicCount = 0
+			}
+
+			time.Sleep(durWaitBeforeStopTheWorld) // give a moment for the rpc to finish
+
 			runtime.ReadMemStats(&m)
 			rss, err := getRss()
 			if err != nil {
@@ -96,19 +132,9 @@ func (c *Child) runWorker(ctx context.Context) error {
 
 			const quota = 2000 // TOO move somewhere else; looks like the CGO stuff leaks :)
 			if allocsF > quota || rssF > quota {
-				f = log.Fatalf // force child to restart
+				f = log.Panicf // force child to restart (or perhaps use a panic handler)
 			}
 			f("alloc size %.2fmb; rss size %.2fmb", allocsF, rssF)
-			timer := time.NewTimer(time.Minute)
-			select {
-			case <-ctx.Done():
-				return
-			case <-c.memstatsC: // not in the hot path to avoid stop the world while running
-				if !timer.Stop() {
-					<-timer.C
-				}
-			case <-timer.C:
-			}
 			runtime.GC()
 		}
 	}()
@@ -191,8 +217,8 @@ func (c *Child) Handler(ctx context.Context) segment.Handler {
 	}
 }
 
-func (c *Child) doneCB() {
-	c.memstatsC <- struct{}{}
+func (c *Child) doneCB(err error) {
+	c.memstatsC <- err
 }
 
 func fromFD(fd uintptr) (f *os.File, err error) {

@@ -21,14 +21,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-const minImages = 4
+const (
+	minImages = 4
+)
 
 type GoAV struct {
 	Context        context.Context
 	VerboseDecoder bool
 	RecvUnixMsg    bool // use a secondary unix socket to receive file descriptors in priv sep mode
+	RestartOnPanic bool
 	FDs            chan uintptr
-	DoneCB         func()
+	DoneCB         func(error)
 }
 
 var pngEncoder = &png.Encoder{
@@ -42,13 +45,31 @@ var onceAvcodecRegisterAll sync.Once
 func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 
 	defer func() {
-		if goav.DoneCB != nil {
-			goav.DoneCB()
-		}
+
 	}()
 
 	ctx := goav.Context
 	log := logger.Entry(ctx)
+
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				err = errors.New(x)
+			case error:
+				err = x
+			default:
+				err = errors.New("unknown panic")
+			}
+			if err != nil {
+				log.WithError(err).Error("HandleSegment panic handler")
+			}
+		}
+		if goav.DoneCB != nil {
+			goav.DoneCB(err)
+		}
+	}()
+
 	defer func() { fractionImages(ctx, resp, err) }()
 
 	onceAvcodecRegisterAll.Do(func() {
