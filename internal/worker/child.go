@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
@@ -87,11 +88,26 @@ func (c *Child) runWorker(ctx context.Context) error {
 			if err != nil {
 				log.WithError(err).Error("getRss")
 			}
-			log.Debugf("alloc size %.2fmb; rss size  %.2fmb", bToMb(m.Alloc), bToMb(rss))
+
+			allocsF := bToMb(m.Alloc)
+			rssF := bToMb(rss)
+
+			f := log.Debugf
+
+			const quota = 2000 // TOO move somewhere else; looks like the CGO stuff leaks :)
+			if allocsF > quota || rssF > quota {
+				f = log.Fatalf // force child to restart
+			}
+			f("alloc size %.2fmb; rss size %.2fmb", allocsF, rssF)
+			timer := time.NewTimer(time.Minute)
 			select {
 			case <-ctx.Done():
 				return
-			case <-c.memstatsC:
+			case <-c.memstatsC: // not in the hot path to avoid stop the world while running
+				if !timer.Stop() {
+					<-timer.C
+				}
+			case <-timer.C:
 			}
 			runtime.GC()
 		}
