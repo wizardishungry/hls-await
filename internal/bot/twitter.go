@@ -8,7 +8,6 @@ import (
 	"image/png"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/imagescore"
@@ -183,42 +182,80 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image
 		log.WithField("num_images", len(srcImages)).Info("not enough images to post")
 		return srcImages, nil
 	}
-	g, ctx := errgroup.WithContext(ctx)
 
-	{
-		inputImages := []image.Image{}
-
+	{ // Bulk Scoring
 		var (
-			inputImagesMutex sync.Mutex
-			elimCount        int
+			numWorkers = runtime.GOMAXPROCS(0)
+			imagesIn   = make(chan image.Image, numWorkers)
+			imagesOut  = make(chan image.Image, numWorkers)
+			elimCount  int
 		)
 		log.WithField("num_images", len(srcImages)).Info("bulk scoring in progress")
-		for _, i := range srcImages {
-			img := i
-			g.Go(func() error {
-				score, err := b.bulkScorer.ScoreImage(ctx, img)
-				if err != nil {
-					return err
-				}
-				inputImagesMutex.Lock()
-				defer inputImagesMutex.Unlock()
 
-				const minScore = 0.012 // TODO not great: jpeg specific
-				if score < minScore {
-					elimCount++
-					log.WithField("score", score).Trace("eliminated image")
-					return nil
+		go func() { // feed images to channel
+			defer close(imagesIn)
+			for _, i := range srcImages {
+				select {
+				case <-ctx.Done():
+					return
+				case imagesIn <- i:
 				}
-				inputImages = append(inputImages, img)
+			}
+		}()
+
+		egScore, ctx := errgroup.WithContext(ctx)
+		for i := 0; i < numWorkers; i++ { // consume channel with numWorkers
+			egScore.Go(func() error {
+				for img := range imagesIn {
+					score, err := b.bulkScorer.ScoreImage(ctx, img)
+					if err != nil {
+						return err
+					}
+					const minScore = 0.012 // TODO not great: jpeg specific
+					if score < minScore {
+						elimCount++
+						log.WithField("score", score).Trace("eliminated image")
+						continue
+					}
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case imagesOut <- img:
+					}
+				}
 				return nil
 			})
 		}
 
-		if err := g.Wait(); err != nil {
+		imageSliceC := make(chan []image.Image)
+		go func() { // collect channel to slice
+			defer close(imageSliceC)
+			images := make([]image.Image, 0, len(srcImages))
+			for img := range imagesOut {
+				images = append(images, img)
+			}
+			if ctx.Err() != nil {
+				return
+			}
+			imageSliceC <- images
+		}()
+
+		err := egScore.Wait()
+		close(imagesOut)
+		if err != nil {
 			return nil, err // eliminate images that caused bulkscorer to fail
 		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case images, ok := <-imageSliceC: // await slice
+			if !ok {
+				return nil, fmt.Errorf("no images received from fanout") // should never happen
+			}
+			srcImages = images
+		}
+
 		log.WithField("elim_count", elimCount).Debug("bulk scoring eliminated images")
-		srcImages = inputImages // overwrite so we can potentially prune
 	}
 
 	// Try to pick a good spread of images
@@ -236,6 +273,7 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image
 	if time.Now().Sub(b.lastPosted) < replyWindow {
 		params.InReplyToStatusID = b.lastID
 	}
+	g, ctx := errgroup.WithContext(ctx)
 
 	log.Info("uploading pics")
 	// TODO retry
