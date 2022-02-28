@@ -83,6 +83,9 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 	file := fmt.Sprintf("/proc/self/fd/%d", fd) // This is a Linuxism, but it works. Otherwise we get like 10% of images (30 instead of 248)
 
 	pFormatContext := avformat.AvformatAllocContext()
+	if pFormatContext == nil {
+		return errors.New("pFormatContext == nil")
+	}
 
 	// if avformat.AvformatOpenInput(&pFormatContext, "x.ts", nil, nil) != 0 {
 	if e := avformat.AvformatOpenInput(&pFormatContext, file, nil, nil); e != 0 {
@@ -91,11 +94,12 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 	defer avformat.AvformatCloseInput(pFormatContext)
 
 	// Retrieve stream information (TODO: is this needeed)
-	var dict *avutil.Dictionary
-	if e := pFormatContext.AvformatFindStreamInfo(&dict); e < 0 {
+	// var dict *avutil.Dictionary
+	// if e := pFormatContext.AvformatFindStreamInfo(&dict); e < 0 {
+	if e := pFormatContext.AvformatFindStreamInfo(nil); e < 0 {
 		return errors.Wrap(goavError(e), "couldn't find stream information.")
 	}
-	defer avutil.AvDictFree(&dict)
+	// defer avutil.AvDictFree(&dict)
 
 	// Dump information about file onto standard error
 	if goav.VerboseDecoder {
@@ -215,6 +219,7 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 						tmp := (*old_avutil.Frame)(unsafe.Pointer(pFrame))
 						// img, err := old_avutil.GetPictureRGB(tmp) // Doesn't work
 						yimg, err := old_avutil.GetPicture(tmp)
+
 						if err != nil {
 							return errors.Wrap(err, "GetPicture")
 						}

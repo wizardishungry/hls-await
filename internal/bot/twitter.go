@@ -124,10 +124,10 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 				images = append(imgs, images...) // unused images get moved to the front
 			}
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(ctx, postTimeout)
 			srcImages := images
 			images = newImageSlice()
 			go func() {
+				ctx, cancel := context.WithTimeout(ctx, postTimeout)
 				defer cancel()
 				unusedImages, err := b.maybeDoPost(ctx, srcImages)
 				// this runs in a goroutine because image scoring+uploading is slow as crap

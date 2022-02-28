@@ -2,11 +2,11 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"runtime"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -18,7 +18,8 @@ func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image
 		imagesOut  = make(chan image.Image, numWorkers)
 		elimCount  int
 	)
-	log.WithField("num_images", len(srcImages)).Info("bulk scoring in progress")
+	log.WithField("num_images", len(srcImages)).
+		Info("bulk scoring in progress")
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error { // feed images to channel
@@ -38,7 +39,7 @@ func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image
 			for img := range imagesIn {
 				score, err := b.bulkScorer.ScoreImage(ctx, img)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "bulkScorer.ScoreImage")
 				}
 				const minScore = 0.012 // TODO not great: jpeg specific
 				if score < minScore {
@@ -63,25 +64,22 @@ func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image
 		for img := range imagesOut {
 			images = append(images, img)
 		}
-		if ctx.Err() != nil {
-			return
-		}
 		imageSliceC <- images
 	}()
 
 	err := g.Wait()
 	close(imagesOut)
-	log.WithField("elim_count", elimCount).Debug("bulk scoring eliminated images")
+	log.WithField("elim_count", elimCount).WithError(err).Debug("bulk scoring eliminated images")
 	if err != nil {
 		return nil, err // eliminate images that caused bulkscorer to fail
 	}
 	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	default:
 	case images, ok := <-imageSliceC: // await slice
 		if !ok {
-			return nil, fmt.Errorf("no images received from fanout") // should never happen
+			break
 		}
 		return images, nil
 	}
+	return nil, errors.New("no images received from fanout")
 }
