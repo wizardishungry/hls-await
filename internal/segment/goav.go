@@ -89,10 +89,13 @@ func (goav *GoAV) HandleSegment(req *Request, resp *Response) (err error) {
 		return errors.Wrap(goavError(e), "couldn't open file.")
 	}
 	defer avformat.AvformatCloseInput(pFormatContext)
-	// Retrieve stream information
-	if e := pFormatContext.AvformatFindStreamInfo(nil); e < 0 {
+
+	// Retrieve stream information (TODO: is this needeed)
+	var dict *avutil.Dictionary
+	if e := pFormatContext.AvformatFindStreamInfo(&dict); e < 0 {
 		return errors.Wrap(goavError(e), "couldn't find stream information.")
 	}
+	defer avutil.AvDictFree(&dict)
 
 	// Dump information about file onto standard error
 	if goav.VerboseDecoder {
