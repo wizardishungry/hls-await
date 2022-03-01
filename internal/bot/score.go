@@ -11,11 +11,17 @@ import (
 )
 
 func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image.Image, error) {
+
+	type imageWithIndex struct {
+		idx   int
+		image image.Image
+	}
+
 	var (
 		log        = logger.Entry(ctx)
 		numWorkers = runtime.GOMAXPROCS(0)
-		imagesIn   = make(chan image.Image, numWorkers)
-		imagesOut  = make(chan image.Image, numWorkers)
+		imagesIn   = make(chan imageWithIndex, numWorkers)
+		imagesOut  = make([]image.Image, len(srcImages))
 		elimCount  int
 	)
 	log.WithField("num_images", len(srcImages)).
@@ -24,11 +30,11 @@ func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error { // feed images to channel
 		defer close(imagesIn)
-		for _, i := range srcImages {
+		for i, img := range srcImages {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case imagesIn <- i:
+			case imagesIn <- imageWithIndex{idx: i, image: img}:
 			}
 		}
 		return nil
@@ -36,50 +42,38 @@ func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image
 
 	for i := 0; i < numWorkers; i++ { // consume channel with numWorkers
 		g.Go(func() error {
-			for img := range imagesIn {
-				score, err := b.bulkScorer.ScoreImage(ctx, img)
+			for imgIdx := range imagesIn {
+				score, err := b.bulkScorer.ScoreImage(ctx, imgIdx.image)
 				if err != nil {
 					return errors.Wrap(err, "bulkScorer.ScoreImage")
 				}
 				const minScore = 0.012 // TODO not great: jpeg specific
 				if score < minScore {
 					elimCount++
-					log.WithField("score", score).Trace("eliminated image")
+					log.WithField("score", score).WithField("idx", imgIdx.idx).Trace("eliminated image")
 					continue
 				}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case imagesOut <- img:
-				}
+				imagesOut[imgIdx.idx] = imgIdx.image
 			}
 			return nil
 		})
 	}
 
-	imageSliceC := make(chan []image.Image)
-	go func() { // collect channel to slice
-		defer close(imageSliceC)
-		images := make([]image.Image, 0, len(srcImages))
-		for img := range imagesOut {
-			images = append(images, img)
-		}
-		imageSliceC <- images
-	}()
-
 	err := g.Wait()
-	close(imagesOut)
 	log.WithField("elim_count", elimCount).WithError(err).Debug("bulk scoring eliminated images")
 	if err != nil {
 		return nil, err // eliminate images that caused bulkscorer to fail
 	}
-	select {
-	default:
-	case images, ok := <-imageSliceC: // await slice
-		if !ok {
-			break
-		}
-		return images, nil
+
+	size := len(srcImages) - elimCount
+	if size == 0 {
+		return nil, errors.New("no images returned from bulkscorer")
 	}
-	return nil, errors.New("no images received from fanout")
+	out := make([]image.Image, 0, size)
+	for _, img := range imagesOut {
+		if img != nil {
+			out = append(out, img)
+		}
+	}
+	return out, nil
 }
