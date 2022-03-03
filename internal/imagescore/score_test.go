@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/png"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
 )
 
 var standardTestCases = []struct {
@@ -41,8 +39,9 @@ func TestScoringAlgos(t *testing.T) {
 			ctx := context.Background()
 			scorer := tC.scoreF()
 
-			for class, imageSlice := range images {
-				for filename, img := range imageSlice {
+			for class, c := range images {
+				for filename, img := range c.ImagesMap() {
+					fmt.Printf("%s: %s/%s \n", tC.desc, class, filename)
 					score, err := scorer.ScoreImage(ctx, img)
 					if err != nil {
 						t.Fatalf("ScoreImage(%s/%s): %v", class, filename, err)
@@ -78,30 +77,19 @@ func BenchmarkScoreImage(b *testing.B) {
 
 }
 
-func getTestingImages(t *testing.T) map[string]map[string]image.Image {
-	images := make(map[string]map[string]image.Image)
-	err := filepath.Walk("testdata/images", func(path string, info fs.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		f, err := os.Open(path)
+func getTestingImages(t *testing.T) map[string]*corpus.Corpus {
+
+	mustLoad := func(path string) *corpus.Corpus {
+		c, err := corpus.Load(path)
 		if err != nil {
-			return err
+			t.Fatalf("mustLoad:%v", err)
 		}
-		defer f.Close()
-		img, err := png.Decode(f)
-		class := filepath.Base(filepath.Dir(path))
-		key := filepath.Base(path)
-		classMap, ok := images[class]
-		if !ok {
-			classMap = make(map[string]image.Image)
-		}
-		classMap[key] = img
-		images[class] = classMap
-		return err
-	})
-	if err != nil {
-		t.Fatalf("filepath.Walk: %v", err)
+		return c
 	}
-	return images
+
+	return map[string]*corpus.Corpus{
+		"interesting":   mustLoad("interesting"),
+		"testpatterns":  mustLoad("interesting"),
+		"uninteresting": mustLoad("interesting"),
+	}
 }
