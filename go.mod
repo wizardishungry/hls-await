@@ -18,9 +18,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e
+	golang.org/x/perf v0.0.0-20211012211434-03971e389cd3
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220222200937-f2425489ef4c
-	golang.org/x/tools v0.1.9
 	jonwillia.ms/roku v1.3.2
 )
 

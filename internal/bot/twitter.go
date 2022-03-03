@@ -26,11 +26,11 @@ const (
 	minUpdateInterval     = 20 * time.Second // used for tweeting quickly after a manual restart
 	numImages             = 4                // per post
 	maxQueuedIntervals    = 4
-	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * maxQueuedIntervals * ImageFraction // about 2 updateIntervals at 25fps x the image fraction
+	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * maxQueuedIntervals * ImageFraction // about 4 updateIntervals at 25fps x the image fraction
 	maxQueuedImagesMult   = 1.5
 	replyWindow           = 3 * updateInterval
-	ImageFraction         = (1 / 25.0) // this is the proportion of images that make it from the decoder to here, aiming for 1/s (@25fps)
-	postTimeout           = time.Minute
+	ImageFraction         = (1 / 25.0)      // this is the proportion of images that make it from the decoder to here, aiming for 1/s (@25fps)
+	postTimeout           = 3 * time.Minute // TODO: this is way way way too slow
 )
 
 var (
@@ -118,9 +118,10 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 				return nil
 			}
 			images = append(images, img)
+			log.WithField("num_images", len(images)).Trace("receiving image")
 		case imgs := <-unusedImagesC:
 			if len(imgs) > 0 {
-				log.Warn("unused images retained")
+				log.WithField("num_images", len(imgs)).Warn("unused images retained")
 				images = append(imgs, images...) // unused images get moved to the front
 			}
 		case <-ticker.C:

@@ -1,5 +1,5 @@
 package hlsawait
 
 import (
-	_ "golang.org/x/tools/benchmark/parse"
+	_ "golang.org/x/perf/benchstat"
 )

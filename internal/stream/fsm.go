@@ -104,7 +104,7 @@ func newTimer(target *fsm.FSM) chan string {
 	go func() {
 		idleTimer := time.NewTicker(idleDur)
 
-		for {
+		for { // bit dodgy but it works
 			select {
 			case <-idleTimer.C:
 				c <- "no_data"

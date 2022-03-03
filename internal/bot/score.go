@@ -62,7 +62,7 @@ func (b *Bot) scoreImages(ctx context.Context, srcImages []image.Image) ([]image
 	err := g.Wait()
 	log.WithField("elim_count", elimCount).WithError(err).Debug("bulk scoring eliminated images")
 	if err != nil {
-		return nil, err // eliminate images that caused bulkscorer to fail
+		return nil, err
 	}
 
 	size := len(srcImages) - elimCount
