@@ -4,6 +4,10 @@ import (
 	"context"
 	"image"
 	"runtime"
+
+	"github.com/WIZARDISHUNGRY/hls-await/internal/filter"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
+	"github.com/pkg/errors"
 )
 
 func NewBulkScore(ctx context.Context, scoreF func() ImageScorer) *BulkScore {
@@ -70,4 +74,21 @@ func (bs *BulkScore) loop(ctx context.Context) {
 			}
 		}
 	}
+}
+
+var _ filter.FilterFunc = nil
+
+func (bs *BulkScore) Filter(ctx context.Context, img image.Image) (bool, error) {
+	log := logger.Entry(ctx)
+	score, err := bs.ScoreImage(ctx, img)
+	if err != nil {
+		return false, errors.Wrap(err, "bulkScorer.ScoreImage")
+	}
+	const minScore = 0.012 // TODO not great: jpeg specific
+	if score < minScore {
+		log.WithField("score", score).Trace("bulk score eliminated image")
+		return false, nil
+	}
+	log.WithField("score", score).Trace("bulk score passed image")
+	return true, nil
 }

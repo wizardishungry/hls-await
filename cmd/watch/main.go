@@ -24,7 +24,8 @@ var (
 )
 
 func main() {
-	log := logrus.New().WithFields(nil)
+	logr := logrus.New()
+	log := logr.WithFields(nil)
 	flag.Parse()
 
 	args := flag.Args()

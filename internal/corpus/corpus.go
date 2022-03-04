@@ -13,6 +13,7 @@ import (
 )
 
 type Corpus struct {
+	name   string
 	images map[string]image.Image
 }
 
@@ -22,6 +23,9 @@ func (c *Corpus) Images() []image.Image {
 func (c *Corpus) ImagesMap() map[string]image.Image {
 	return c.images
 }
+func (c *Corpus) Name() string {
+	return c.name
+}
 
 var (
 	_, b, _, _ = runtime.Caller(0)
@@ -30,6 +34,7 @@ var (
 
 func Load(path string) (*Corpus, error) {
 	c := &Corpus{
+		name:   path,
 		images: make(map[string]image.Image),
 	}
 

@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/bot"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	my_roku "github.com/WIZARDISHUNGRY/hls-await/internal/roku"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/worker"
+	"github.com/WIZARDISHUNGRY/hls-await/pkg/heap"
 	"github.com/WIZARDISHUNGRY/hls-await/pkg/proxy"
 	"github.com/looplab/fsm"
 	"github.com/pkg/errors"
@@ -71,8 +73,15 @@ type Stream struct {
 	bot       *bot.Bot
 	sendToBot int32 // for atomic
 
-	client       *http.Client
-	frameCounter int
+	client            *http.Client
+	outputImages      *heap.Heap[*outputImageEntry]
+	outputImagesMutex sync.Mutex
+}
+
+type outputImageEntry struct {
+	counter            int
+	passedFilter, done bool
+	image              image.Image
 }
 
 func newStream() *Stream {
@@ -80,6 +89,9 @@ func newStream() *Stream {
 		oneShot:    make(chan struct{}, 1),
 		imageChan:  make(chan image.Image, 100), // TODO magic size
 		segmentMap: make(map[url.URL]struct{}),
+		outputImages: heap.NewHeap(func(a, b *outputImageEntry) bool {
+			return a.counter < b.counter
+		}),
 	}
 	return s
 }

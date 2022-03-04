@@ -23,12 +23,6 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image
 		return srcImages, nil
 	}
 
-	if images, err := b.scoreImages(ctx, srcImages); err != nil {
-		return nil, errors.Wrap(err, "scoreImages")
-	} else {
-		srcImages = images
-	}
-
 	// Try to pick a good spread of images
 	offset := len(srcImages) / numImages
 	images := []image.Image{}
