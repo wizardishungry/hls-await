@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"runtime"
 	"sync/atomic"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
@@ -15,6 +16,7 @@ import (
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/semaphore"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,6 +24,12 @@ const (
 	goimagehashDim = 8    // should be power of 2, color bars show noise at 16
 	imagescoreMin  = 0.06 // GZIP specific, calculated from output of TestScoringAlgos
 )
+
+func withFrameCount(ctx context.Context, frameCount int) (context.Context, *logrus.Entry) {
+	log := logger.Entry(ctx).WithField("frame_count", frameCount)
+	logger.WithLogEntry(ctx, log)
+	return ctx, log
+}
 
 // We picked gzip because it had the best results and good speed + low allocs
 var imageScorerAlgo = imagescore.NewGzipScorer
@@ -48,6 +56,9 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 
 	var frameCount int
 
+	var maxFramesInFlight = runtime.GOMAXPROCS(-1) * 4 // a large number
+	sem := semaphore.NewWeighted(int64(maxFramesInFlight))
+
 	oneShot := false
 	for {
 		select {
@@ -59,13 +70,10 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				log.Println("photo time!")
 			}
 		case img := <-s.imageChan:
-			// TODO add timeout and concurrency control here
-			go func(ctx context.Context, filterFunc filter.FilterFunc, img image.Image, oneShot bool, frameCount int) {
-				err := s.consumeImage(ctx, filterFunc, img, oneShot, frameCount)
-				if err != nil {
-					log.WithError(err).Warn("consumeImage")
-				}
-			}(ctx, filterFunc, img, oneShot, frameCount)
+			err := s.consumeImage(ctx, sem, filterFunc, img, oneShot, frameCount)
+			if err != nil {
+				return err
+			}
 			if oneShot {
 				oneShot = false
 			}
@@ -74,18 +82,14 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 	}
 }
 
+// consumeImage cannot be spawned in its own goroutine because we must ensure the heap is updated synchonously
 func (s *Stream) consumeImage(ctx context.Context,
+	sem *semaphore.Weighted,
 	filterFunc filter.FilterFunc,
 	img image.Image,
 	oneShot bool,
 	frameCount int,
 ) error {
-
-	withFrameCount := func(ctx context.Context, frameCount int) (context.Context, *logrus.Entry) {
-		log := logger.Entry(ctx).WithField("frame_count", frameCount)
-		logger.WithLogEntry(ctx, log)
-		return ctx, log
-	}
 	ctx, log := withFrameCount(ctx, frameCount)
 
 	entry := &outputImageEntry{
@@ -94,13 +98,37 @@ func (s *Stream) consumeImage(ctx context.Context,
 		image:   img,
 	}
 
-	var sendToBot bool
-	func() {
-		s.outputImagesMutex.Lock()
-		defer s.outputImagesMutex.Unlock()
-		s.outputImages.Push(entry)
+	s.outputImagesMutex.Lock()
+	s.outputImages.Push(entry)
+	s.outputImagesMutex.Unlock()
+
+	if err := s.drawImage(ctx, img, oneShot, entry); err != nil {
+		log.WithError(err).Warn("drawImage draw")
+	}
+	err := sem.Acquire(ctx, 1)
+	if err != nil {
+		return err
+	}
+	go func() {
+		defer sem.Release(1)
+		err := s.consumeImageAsync(ctx, filterFunc, img, oneShot, entry)
+		if err != nil {
+			log.WithError(err).Warn("consumeImageAsync")
+		}
 	}()
-	defer func() {
+	return nil
+}
+
+func (s *Stream) consumeImageAsync(ctx context.Context,
+	filterFunc filter.FilterFunc,
+	img image.Image,
+	oneShot bool,
+	entry *outputImageEntry,
+) error {
+
+	var sendToBot bool
+
+	defer func() { // When finishing filtering an image try to dequeue all done images
 		s.outputImagesMutex.Lock()
 		defer s.outputImagesMutex.Unlock()
 		entry.done = true // done
@@ -120,7 +148,7 @@ func (s *Stream) consumeImage(ctx context.Context,
 				return
 			}
 			if entry.passedFilter {
-				log.Trace("passed filter")
+				log.Debug("passed filter")
 				s.PushEvent(ctx, "unsteady")
 			} else {
 				log.Trace("failed filter")
@@ -132,44 +160,42 @@ func (s *Stream) consumeImage(ctx context.Context,
 		}
 	}()
 
-	err := func() error {
-		if oneShot {
-			oneShot = false
-			goto CLICK
-
-		}
-		if s.flags.AnsiArt == 0 {
-			return nil
-		}
-		if frameCount%(s.flags.AnsiArt) != 0 {
-			return nil
-		}
-	CLICK:
-
-		ws, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
-		if err != nil {
-			return errors.Wrap(err, "unix.IoctlGetWinsize")
-		}
-		ansi, err := ansimage.NewScaledFromImage(img, 8*int(ws.Col), 7*int(ws.Row), color.Black, ansimage.ScaleModeFit, ansimage.DitheringWithChars)
-		if err != nil {
-			return errors.Wrap(err, "ansimage.NewScaledFromImage")
-		}
-		if s.flags.Flicker {
-			// TODO this is unimpressive now that images are fractioned
-			fmt.Print("\033[H\033[2J") // flicker
-		}
-		ansi.Draw()
-		return nil
-	}()
-	if err != nil {
-		log.WithError(err).Warn("consumeImage draw")
-	}
-
 	ok, err := filterFunc(ctx, img)
 	if err != nil {
 		return err
 	}
 	sendToBot = ok
 
+	return nil
+}
+
+func (s *Stream) drawImage(ctx context.Context,
+	img image.Image,
+	oneShot bool,
+	entry *outputImageEntry,
+) error {
+
+	if !oneShot {
+		if s.flags.AnsiArt == 0 {
+			return nil
+		}
+		if entry.counter%(s.flags.AnsiArt) != 0 {
+			return nil
+		}
+	}
+
+	ws, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
+	if err != nil {
+		return errors.Wrap(err, "unix.IoctlGetWinsize")
+	}
+	ansi, err := ansimage.NewScaledFromImage(img, 8*int(ws.Col), 7*int(ws.Row), color.Black, ansimage.ScaleModeFit, ansimage.DitheringWithChars)
+	if err != nil {
+		return errors.Wrap(err, "ansimage.NewScaledFromImage")
+	}
+	if s.flags.Flicker {
+		// TODO this is unimpressive now that images are fractioned
+		fmt.Print("\033[H\033[2J") // flicker
+	}
+	ansi.Draw()
 	return nil
 }

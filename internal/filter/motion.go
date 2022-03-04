@@ -25,16 +25,16 @@ func Motion(dim, minDist int) FilterFunc {
 		if err != nil {
 			return false, errors.Wrap(err, "ExtPerceptionHash error")
 		}
+
+		mutex.Lock()
+		defer mutex.Unlock()
 		if firstHash == nil {
-			mutex.Lock()
-			defer mutex.Unlock()
 			firstHash = hash
 			return true, nil
 		}
-		mutex.Lock()
 		distance, err := firstHash.Distance(hash)
 		firstHash = hash
-		mutex.Unlock()
+
 		if err != nil {
 			return false, errors.Wrap(err, "ExtPerceptionHash Distance error")
 		}
