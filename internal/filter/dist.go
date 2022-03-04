@@ -20,7 +20,7 @@ func DefaultMinDistFromCorpus(c *corpus.Corpus) FilterFunc {
 }
 
 // MinDistFromCorpus returns a filter function that rejects images that fall under a threshold when
-// comparing the ExtPerceptionHash against a corpus. It is safe for concurrent use.
+// comparing the ExtPerceptionHash against a corpus.
 func MinDistFromCorpus(c *corpus.Corpus, dim, minDist int) FilterFunc {
 	hashes := make(map[string]*goimagehash.ExtImageHash, len(c.Images()))
 	for file, img := range c.ImagesMap() {

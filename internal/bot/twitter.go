@@ -29,9 +29,9 @@ const (
 	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * maxQueuedIntervals * ImageFraction // about 4 updateIntervals at 25fps x the image fraction
 	maxQueuedImagesMult   = 1.5
 	replyWindow           = 3 * updateInterval
-	ImageFraction         = (4 / FPS)       // this is the proportion of images that make it from the decoder to here
-	FPS                   = 25.0            // assume source is 25 fps PAL
-	postTimeout           = 3 * time.Minute // TODO: this is way way way too slow
+	ImageFraction         = (4 / FPS) // this is the proportion of images that make it from the decoder to here
+	FPS                   = 25.0      // assume source is 25 fps PAL
+	postTimeout           = 1 * time.Minute
 )
 
 var (
@@ -133,7 +133,7 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 				ctx, cancel := context.WithTimeout(ctx, postTimeout)
 				defer cancel()
 				unusedImages, err := b.maybeDoPost(ctx, srcImages)
-				// this runs in a goroutine because image scoring+uploading is slow as crap
+				// this runs in a goroutine because image uploading is slow
 				if err != nil {
 					log.WithError(err).Warn("maybeDoPost")
 				}

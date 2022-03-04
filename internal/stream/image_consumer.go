@@ -59,6 +59,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				log.Println("photo time!")
 			}
 		case img := <-s.imageChan:
+			// TODO add timeout and concurrency control here
 			go func(ctx context.Context, filterFunc filter.FilterFunc, img image.Image, oneShot bool, frameCount int) {
 				err := s.consumeImage(ctx, filterFunc, img, oneShot, frameCount)
 				if err != nil {

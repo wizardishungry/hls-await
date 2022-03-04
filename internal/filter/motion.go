@@ -3,6 +3,7 @@ package filter
 import (
 	"context"
 	"image"
+	"sync"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/corona10/goimagehash"
@@ -12,7 +13,10 @@ import (
 // Motion returns a filter function that rejects images that fall under a threshold when
 // comparing the ExtPerceptionHash against the previous image hash.
 func Motion(dim, minDist int) FilterFunc {
-	var firstHash *goimagehash.ExtImageHash
+	var (
+		firstHash *goimagehash.ExtImageHash
+		mutex     sync.Mutex
+	)
 
 	return func(ctx context.Context, img image.Image) (bool, error) {
 		log := logger.Entry(ctx)
@@ -22,10 +26,15 @@ func Motion(dim, minDist int) FilterFunc {
 			return false, errors.Wrap(err, "ExtPerceptionHash error")
 		}
 		if firstHash == nil {
+			mutex.Lock()
+			defer mutex.Unlock()
 			firstHash = hash
 			return true, nil
 		}
+		mutex.Lock()
 		distance, err := firstHash.Distance(hash)
+		firstHash = hash
+		mutex.Unlock()
 		if err != nil {
 			return false, errors.Wrap(err, "ExtPerceptionHash Distance error")
 		}
