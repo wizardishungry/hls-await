@@ -8,8 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/filter"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
-	"github.com/corona10/goimagehash"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -18,7 +19,6 @@ import (
 
 const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
 var (                    // TODO move into struct
-	firstHash          *goimagehash.ExtImageHash
 	globalFrameCounter int
 	singleImage        image.Image
 	singleImageMutex   sync.Mutex
@@ -26,6 +26,16 @@ var (                    // TODO move into struct
 
 func (s *Stream) consumeImages(ctx context.Context) error {
 	log := logger.Entry(ctx)
+
+	c, err := corpus.Load("testpatterns")
+	if err != nil {
+		return errors.Wrap(err, "corpus.Load")
+	}
+
+	filterFunc := filter.Multi(
+		filter.Motion(goimagehashDim, s.flags.Threshold),
+		filter.DefaultMinDistFromCorpus(c),
+	)
 
 	oneShot := false
 	for {
@@ -79,21 +89,12 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 			})
 
 			g.Go(func() error {
-				hash, err := goimagehash.ExtPerceptionHash(img, goimagehashDim, goimagehashDim)
+				ok, err := filterFunc(ctx, img)
 				if err != nil {
-					return errors.Wrap(err, "ExtPerceptionHash error")
+					return err
 				}
-				if firstHash == nil {
-					firstHash = hash
-					return nil
-				}
-				distance, err := firstHash.Distance(hash)
-				if err != nil {
-					return errors.Wrap(err, "ExtPerceptionHash Distance error")
-				}
-				if distance >= s.flags.Threshold {
-					log.Tracef("[%d] ExtPerceptionHash distance is %d, threshold is %d\n", globalFrameCounter, distance, s.flags.Threshold)
-					firstHash = hash
+				if ok {
+					log.Tracef("[%d] passed filter", globalFrameCounter)
 					s.PushEvent(ctx, "unsteady")
 				} else {
 					s.PushEvent(ctx, "steady")

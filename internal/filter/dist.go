@@ -2,7 +2,6 @@ package filter
 
 import (
 	"context"
-	"fmt"
 	"image"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
@@ -43,7 +42,6 @@ func MinDistFromCorpus(c *corpus.Corpus, dim, minDist int) FilterFunc {
 			if err != nil {
 				return false, errors.Wrap(err, "hash.Distance")
 			}
-			fmt.Println(dist)
 			if dist <= minDist && dist != 0 { // TODO temp adding a special case here
 				return false, nil // TODO: do we want verbose errors?
 			}

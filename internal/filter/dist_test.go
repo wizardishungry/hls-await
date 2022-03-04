@@ -2,10 +2,14 @@ package filter
 
 import (
 	"context"
+	"image"
 	"testing"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
 )
+
+//go:generate sh -c "go test ./... -run '^$' -benchmem -bench . | tee benchresult.txt"
+//go:generate sh -c "git show :./benchresult.txt | go run golang.org/x/perf/cmd/benchstat -delta-test none -geomean /dev/stdin benchresult.txt | tee benchdiff.txt"
 
 func TestMinDistFromCorpus(t *testing.T) {
 	testPatterns, err := corpus.Load("testpatterns")
@@ -50,4 +54,28 @@ func TestMinDistFromCorpus_rejects_self(t *testing.T) {
 			t.Fatalf("filter succeeded for %s", name)
 		}
 	}
+}
+
+func BenchmarkMinDistFromCorpus(b *testing.B) {
+	testPatterns, err := corpus.Load("testpatterns")
+	if err != nil {
+		b.Fatalf("Load testpatterns: %v", err)
+	}
+	f := DefaultMinDistFromCorpus(testPatterns)
+	const (
+		xDim = 720
+		yDim = 576
+	)
+	rect := image.Rectangle{Min: image.Point{}, Max: image.Point{X: xDim, Y: yDim}}
+
+	img := image.NewRGBA(rect)
+	ctx := context.Background()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		_, err := f(ctx, img)
+		if err != nil {
+			b.Fatalf("filter: %v", err)
+		}
+	}
+
 }
