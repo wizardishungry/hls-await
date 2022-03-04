@@ -122,7 +122,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 
 			const maxWatchdogCount = 4
 			if watchdogCount > maxWatchdogCount {
-				log.Fatal("exceeded maxWatchdogCount(%d), exiting", maxWatchdogCount)
+				log.Fatalf("exceeded maxWatchdogCount(%d), exiting", maxWatchdogCount)
 			}
 
 			time.Sleep(durWaitBeforeStopTheWorld) // give a moment for the rpc to finish

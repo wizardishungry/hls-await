@@ -19,7 +19,9 @@ func Entry(ctx context.Context) *logrus.Entry {
 	e, ok := v.(*logrus.Entry)
 	if !ok {
 		err := fmt.Errorf("not a *logrus.Entry: %T", v)
-		panic(err)
+		log := logrus.New().WithFields(nil)
+		log.WithError(err).Warn("unable to get log entry")
+		return log
 	}
 	return e
 }

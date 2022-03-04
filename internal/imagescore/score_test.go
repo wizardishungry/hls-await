@@ -81,9 +81,12 @@ func BenchmarkScoreImage(b *testing.B) {
 func getTestingImages(t *testing.T) map[string]*corpus.Corpus {
 
 	mustLoad := func(path string) *corpus.Corpus {
-		c, err := corpus.Load(path)
+		c, err := corpus.LoadEmbedded(path)
 		if err != nil {
-			t.Fatalf("mustLoad:%v", err)
+			c, err = corpus.LoadFS(path)
+			if err != nil {
+				t.Fatalf("mustLoad:%v", err)
+			}
 		}
 		return c
 	}

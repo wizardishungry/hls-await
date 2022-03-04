@@ -22,7 +22,7 @@ const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
 func (s *Stream) consumeImages(ctx context.Context) error {
 	log := logger.Entry(ctx)
 
-	c, err := corpus.Load("testpatterns")
+	c, err := corpus.LoadEmbedded("testpatterns")
 	if err != nil {
 		return errors.Wrap(err, "corpus.Load")
 	}

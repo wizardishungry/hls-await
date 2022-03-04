@@ -12,11 +12,11 @@ import (
 //go:generate sh -c "git show :./benchresult.txt | go run golang.org/x/perf/cmd/benchstat -delta-test none -geomean /dev/stdin benchresult.txt | tee benchdiff.txt"
 
 func TestMinDistFromCorpus(t *testing.T) {
-	testPatterns, err := corpus.Load("testpatterns")
+	testPatterns, err := corpus.LoadEmbedded("testpatterns")
 	if err != nil {
 		t.Fatalf("Load testpatterns: %v", err)
 	}
-	interesting, err := corpus.Load("interesting")
+	interesting, err := corpus.LoadFS("interesting")
 	if err != nil {
 		t.Fatalf("Load interesting: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestMinDistFromCorpus(t *testing.T) {
 }
 
 func TestMinDistFromCorpus_rejects_self(t *testing.T) {
-	testPatterns, err := corpus.Load("testpatterns")
+	testPatterns, err := corpus.LoadEmbedded("testpatterns")
 	if err != nil {
 		t.Fatalf("Load testpatterns: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestMinDistFromCorpus_rejects_self(t *testing.T) {
 }
 
 func BenchmarkMinDistFromCorpus(b *testing.B) {
-	testPatterns, err := corpus.Load("testpatterns")
+	testPatterns, err := corpus.LoadEmbedded("testpatterns")
 	if err != nil {
 		b.Fatalf("Load testpatterns: %v", err)
 	}
