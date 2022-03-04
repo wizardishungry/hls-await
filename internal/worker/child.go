@@ -87,14 +87,15 @@ func (c *Child) runWorker(ctx context.Context) error {
 		}
 
 		var (
-			panicCount int
+			panicCount    int
+			watchdogCount int
 		)
 		for {
 			var (
 				m   runtime.MemStats
 				err error = nil
 			)
-			timer := time.NewTimer(time.Minute)
+			timer := time.NewTimer(30 * time.Second) // watchdog
 			select {
 			case <-ctx.Done():
 				return
@@ -102,7 +103,9 @@ func (c *Child) runWorker(ctx context.Context) error {
 				if !timer.Stop() {
 					<-timer.C
 				}
+				watchdogCount = 0
 			case <-timer.C:
+				watchdogCount++
 			}
 
 			if err != nil {
@@ -115,6 +118,11 @@ func (c *Child) runWorker(ctx context.Context) error {
 				h("panicCounter")
 			} else {
 				panicCount = 0
+			}
+
+			const maxWatchdogCount = 4
+			if watchdogCount > maxWatchdogCount {
+				log.Fatal("exceeded maxWatchdogCount(%d), exiting", maxWatchdogCount)
 			}
 
 			time.Sleep(durWaitBeforeStopTheWorld) // give a moment for the rpc to finish

@@ -52,12 +52,15 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				log.Println("photo time!")
 			}
 		case img := <-s.imageChan:
-			go func(count int) {
-				err := s.consumeImage(ctx, filterFunc, img, oneShot, count)
+			go func(ctx context.Context, filterFunc filter.FilterFunc, img image.Image, oneShot bool, frameCount int) {
+				err := s.consumeImage(ctx, filterFunc, img, oneShot, frameCount)
 				if err != nil {
 					log.WithError(err).Warn("consumeImage")
 				}
-			}(frameCount)
+			}(ctx, filterFunc, img, oneShot, frameCount)
+			if oneShot {
+				oneShot = false
+			}
 			frameCount++
 		}
 	}
