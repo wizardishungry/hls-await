@@ -21,6 +21,7 @@ func BenchmarkBulkScores(b *testing.B) {
 		b.Run(tC.desc, func(b *testing.B) {
 			ctx := context.Background()
 			bs := NewBulkScore(ctx, tC.scoreF)
+			b.ResetTimer()
 			b.RunParallel(func(p *testing.PB) {
 				for p.Next() {
 					img := image.NewRGBA(rect)

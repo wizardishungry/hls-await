@@ -49,7 +49,7 @@ func MinDistFromCorpus(c *corpus.Corpus, dim, minDist int) FilterFunc {
 			}
 			if dist <= minDist && dist != 0 { // TODO temp adding a special 0 case here
 				log.Tracef("MinDistFromCorpus(%s/%s): %v <= %v", c.Name(), file, dist, minDist)
-				return false, nil // TODO: do we want verbose errors?
+				return false, nil
 			}
 		}
 		return true, nil

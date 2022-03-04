@@ -6,7 +6,9 @@ import (
 	"image/gif"
 )
 
-type GifScorer struct{}
+type GifScorer struct {
+	uncompressedImageSizeCache
+}
 
 var _ ImageScorer = &GifScorer{}
 
@@ -21,7 +23,7 @@ func (ps *GifScorer) ScoreImage(ctx context.Context, img image.Image) (float64, 
 		return 0, err
 	}
 
-	origSize, err := uncompressedImageSize(img)
+	origSize, err := ps.size(img)
 	if err != nil {
 		return 0, err
 	}

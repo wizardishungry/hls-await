@@ -6,13 +6,15 @@ import (
 	"image/jpeg"
 )
 
-type JpegScorer struct{}
+type JpegScorer struct {
+	uncompressedImageSizeCache
+}
 
 var _ ImageScorer = &JpegScorer{}
 
 func NewJpegScorer() *JpegScorer { return &JpegScorer{} }
 
-func (ps *JpegScorer) ScoreImage(ctx context.Context, img image.Image) (float64, error) {
+func (js *JpegScorer) ScoreImage(ctx context.Context, img image.Image) (float64, error) {
 	opts := jpeg.Options{Quality: jpeg.DefaultQuality}
 	buf := &discardCounter{}
 
@@ -23,7 +25,7 @@ func (ps *JpegScorer) ScoreImage(ctx context.Context, img image.Image) (float64,
 		return 0, err
 	}
 
-	origSize, err := uncompressedImageSize(img)
+	origSize, err := js.size(img)
 	if err != nil {
 		return 0, err
 	}

@@ -5,8 +5,6 @@ import (
 	"image"
 	"runtime"
 
-	"github.com/WIZARDISHUNGRY/hls-await/internal/filter"
-	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/pkg/errors"
 )
 
@@ -46,7 +44,10 @@ func (bs *BulkScore) ScoreImage(ctx context.Context, img image.Image) (float64, 
 		return -1, ctx.Err()
 	}
 	select {
-	case res := <-bsr.C:
+	case res, ok := <-bsr.C:
+		if !ok {
+			return -1, errors.New("closed")
+		}
 		return res.result, res.err
 	case <-ctx.Done():
 		return -1, ctx.Err()
@@ -69,26 +70,10 @@ func (bs *BulkScore) loop(ctx context.Context) {
 			score, err := scorer.ScoreImage(ctx, req.img)
 			select {
 			case <-ctx.Done():
+				close(req.C)
 				return
 			case req.C <- bulkScoreResult{score, err}:
 			}
 		}
 	}
-}
-
-var _ filter.FilterFunc = nil
-
-func (bs *BulkScore) Filter(ctx context.Context, img image.Image) (bool, error) {
-	log := logger.Entry(ctx)
-	score, err := bs.ScoreImage(ctx, img)
-	if err != nil {
-		return false, errors.Wrap(err, "bulkScorer.ScoreImage")
-	}
-	const minScore = 0.012 // TODO not great: jpeg specific
-	if score < minScore {
-		log.WithField("score", score).Trace("bulk score eliminated image")
-		return false, nil
-	}
-	log.WithField("score", score).Trace("bulk score passed image")
-	return true, nil
 }

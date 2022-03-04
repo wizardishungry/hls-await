@@ -9,6 +9,7 @@ import (
 
 type PngScorer struct {
 	enc png.Encoder
+	uncompressedImageSizeCache
 }
 
 var _ ImageScorer = &PngScorer{}
@@ -32,7 +33,7 @@ func (ps *PngScorer) ScoreImage(ctx context.Context, img image.Image) (float64, 
 		return 0, err
 	}
 
-	origSize, err := uncompressedImageSize(img)
+	origSize, err := ps.size(img)
 	if err != nil {
 		return 0, err
 	}

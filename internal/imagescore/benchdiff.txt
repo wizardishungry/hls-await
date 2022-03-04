@@ -1,32 +1,32 @@
 name                old time/op    new time/op    delta
-BulkScores/png-16     2.71ms ± 0%    2.07ms ± 0%  -23.52%
-BulkScores/gzip-16    2.90ms ± 0%    2.15ms ± 0%  -25.78%
-BulkScores/jpeg-16    3.62ms ± 0%    3.20ms ± 0%  -11.63%
-BulkScores/gif-16     40.5ms ± 0%    37.4ms ± 0%   -7.74%
-ScoreImage/png-16     19.2ms ± 0%    16.6ms ± 0%  -13.31%
-ScoreImage/gzip-16    18.8ms ± 0%    16.7ms ± 0%  -10.70%
-ScoreImage/jpeg-16    27.4ms ± 0%    24.0ms ± 0%  -12.61%
-ScoreImage/gif-16      276ms ± 0%     258ms ± 0%   -6.55%
-[Geo mean]            15.4ms         13.2ms       -14.24%
+BulkScores/png-16     2.07ms ± 0%    2.03ms ± 0%   -1.96%
+BulkScores/gzip-16    2.15ms ± 0%    2.26ms ± 0%   +4.98%
+BulkScores/jpeg-16    3.20ms ± 0%    2.75ms ± 0%  -14.10%
+BulkScores/gif-16     37.4ms ± 0%    33.4ms ± 0%  -10.56%
+ScoreImage/png-16     16.6ms ± 0%    18.5ms ± 0%  +11.53%
+ScoreImage/gzip-16    16.7ms ± 0%    19.6ms ± 0%  +17.13%
+ScoreImage/jpeg-16    24.0ms ± 0%    26.3ms ± 0%   +9.86%
+ScoreImage/gif-16      258ms ± 0%     264ms ± 0%   +2.30%
+[Geo mean]            13.2ms         13.4ms        +1.88%
 
 name                old alloc/op   new alloc/op   delta
-BulkScores/png-16     7.76MB ± 0%    7.97MB ± 0%   +2.62%
-BulkScores/gzip-16    10.4MB ± 0%    10.8MB ± 0%   +3.27%
-BulkScores/jpeg-16    7.83MB ± 0%    7.77MB ± 0%   -0.76%
-BulkScores/gif-16     4.86MB ± 0%    4.64MB ± 0%   -4.67%
-ScoreImage/png-16     7.44MB ± 0%    7.44MB ± 0%   +0.00%
-ScoreImage/gzip-16    9.70MB ± 0%    9.71MB ± 0%   +0.12%
-ScoreImage/jpeg-16    7.14MB ± 0%    7.14MB ± 0%   -0.11%
-ScoreImage/gif-16     4.27MB ± 0%    4.27MB ± 0%    0.00%
-[Geo mean]            7.14MB         7.15MB        +0.03%
+BulkScores/png-16     7.97MB ± 0%    5.52MB ± 0%  -30.65%
+BulkScores/gzip-16    10.8MB ± 0%     8.2MB ± 0%  -24.07%
+BulkScores/jpeg-16    7.77MB ± 0%    5.54MB ± 0%  -28.65%
+BulkScores/gif-16     4.64MB ± 0%    3.80MB ± 0%  -18.08%
+ScoreImage/png-16     7.44MB ± 0%    3.81MB ± 0%  -48.78%
+ScoreImage/gzip-16    9.71MB ± 0%    6.38MB ± 0%  -34.28%
+ScoreImage/jpeg-16    7.14MB ± 0%    3.82MB ± 0%  -46.53%
+ScoreImage/gif-16     4.27MB ± 0%    1.36MB ± 0%  -68.19%
+[Geo mean]            7.15MB         4.31MB       -39.64%
 
 name                old allocs/op  new allocs/op  delta
-BulkScores/png-16       415k ± 0%      415k ± 0%    0.00%
-BulkScores/gzip-16      415k ± 0%      415k ± 0%   +0.00%
-BulkScores/jpeg-16      415k ± 0%      415k ± 0%    0.00%
-BulkScores/gif-16       57.0 ± 0%      57.0 ± 0%    0.00%
-ScoreImage/png-16       415k ± 0%      415k ± 0%   +0.00%
-ScoreImage/gzip-16      415k ± 0%      415k ± 0%    0.00%
-ScoreImage/jpeg-16      415k ± 0%      415k ± 0%    0.00%
-ScoreImage/gif-16       66.0 ± 0%      66.0 ± 0%    0.00%
-[Geo mean]             45.7k          45.7k        +0.00%
+BulkScores/png-16       415k ± 0%      415k ± 0%   -0.01%
+BulkScores/gzip-16      415k ± 0%      415k ± 0%   -0.01%
+BulkScores/jpeg-16      415k ± 0%      415k ± 0%   -0.01%
+BulkScores/gif-16       57.0 ± 0%      42.0 ± 0%  -26.32%
+ScoreImage/png-16       415k ± 0%      415k ± 0%   -0.01%
+ScoreImage/gzip-16      415k ± 0%      415k ± 0%   -0.01%
+ScoreImage/jpeg-16      415k ± 0%      415k ± 0%   -0.01%
+ScoreImage/gif-16       66.0 ± 0%      24.0 ± 0%  -63.64%
+[Geo mean]             45.7k          38.8k       -15.18%

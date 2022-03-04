@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
+	"golang.org/x/exp/slices"
 )
 
 var standardTestCases = []struct {
@@ -34,21 +35,32 @@ var standardTestCases = []struct {
 func TestScoringAlgos(t *testing.T) {
 	images := getTestingImages(t)
 
-	for _, tC := range standardTestCases {
+	for _, tc := range standardTestCases {
+		tC := tc // capture
 		t.Run(tC.desc, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			scorer := tC.scoreF()
 
-			for class, c := range images {
+			for _, iC := range images {
+				c := iC.corpus
+				class := iC.desc
+				scores := make([]float64, 0, len(c.ImagesMap()))
 				for filename, img := range c.ImagesMap() {
-					fmt.Printf("%s: %s/%s \n", tC.desc, class, filename)
+					// fmt.Printf("%s: %s/%s \n", tC.desc, class, filename)
 					score, err := scorer.ScoreImage(ctx, img)
 					if err != nil {
 						t.Fatalf("ScoreImage(%s/%s): %v", class, filename, err)
 					}
-					fmt.Printf("%s: %s/%s %f\n", tC.desc, class, filename, score)
+					scores = append(scores, score)
+					// fmt.Printf("%s: %s/%s %f\n", tC.desc, class, filename, score)
 				}
+				slices.Sort(scores)
+				defer func(class string) {
+					min := scores[0]
+					max := scores[len(scores)-1]
+					fmt.Printf("%s/%s: %.4f %.4f\n", tC.desc, class, min, max)
+				}(class)
 			}
 
 		})
@@ -61,14 +73,15 @@ func BenchmarkScoreImage(b *testing.B) {
 		yDim = 576
 	)
 	rect := image.Rectangle{Min: image.Point{}, Max: image.Point{X: xDim, Y: yDim}}
+	img := image.NewRGBA(rect)
 
 	for _, tC := range standardTestCases {
 		b.Run(tC.desc, func(b *testing.B) {
 			ctx := context.Background()
-			bs := NewBulkScore(ctx, tC.scoreF)
+			scorer := tC.scoreF()
+			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				img := image.NewRGBA(rect)
-				_, err := bs.ScoreImage(ctx, img)
+				_, err := scorer.ScoreImage(ctx, img)
 				if err != nil {
 					b.Fatalf("ScoreImage: %v", err)
 				}
@@ -78,7 +91,12 @@ func BenchmarkScoreImage(b *testing.B) {
 
 }
 
-func getTestingImages(t *testing.T) map[string]*corpus.Corpus {
+type imageClass struct {
+	desc   string
+	corpus *corpus.Corpus
+}
+
+func getTestingImages(t *testing.T) []imageClass {
 
 	mustLoad := func(path string) *corpus.Corpus {
 		c, err := corpus.LoadEmbedded(path)
@@ -91,9 +109,9 @@ func getTestingImages(t *testing.T) map[string]*corpus.Corpus {
 		return c
 	}
 
-	return map[string]*corpus.Corpus{
-		"interesting":   mustLoad("interesting"),
-		"testpatterns":  mustLoad("interesting"),
-		"uninteresting": mustLoad("interesting"),
+	return []imageClass{
+		{"interesting", mustLoad("interesting")},
+		{"testpatterns", mustLoad("testpatterns")},
+		{"uninteresting", mustLoad("uninteresting")},
 	}
 }

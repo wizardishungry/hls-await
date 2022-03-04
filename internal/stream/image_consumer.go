@@ -18,7 +18,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const goimagehashDim = 8 // should be power of 2, color bars show noise at 16
+const (
+	goimagehashDim = 8     // should be power of 2, color bars show noise at 16
+	imagescoreMin  = 0.012 // TODO not great: jpeg specific, also computes size prior to compression which should be constant for image dimensions
+)
 
 func (s *Stream) consumeImages(ctx context.Context) error {
 	log := logger.Entry(ctx)
@@ -37,7 +40,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 	filterFunc := filter.Multi(
 		filter.Motion(goimagehashDim, s.flags.Threshold),
 		filter.DefaultMinDistFromCorpus(c),
-		bs.Filter,
+		imagescore.Filter(bs, imagescoreMin),
 	)
 
 	var frameCount int

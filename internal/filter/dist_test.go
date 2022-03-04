@@ -45,9 +45,6 @@ func TestMinDistFromCorpus_rejects_self(t *testing.T) {
 	f := DefaultMinDistFromCorpus(testPatterns)
 	ctx := testCtx()
 	for name, img := range testPatterns.ImagesMap() {
-		if name != "FM5muAHXIAMc01i.png" {
-			continue
-		}
 		ok, err := f(ctx, img)
 		if err != nil {
 			t.Fatalf("filter: %v", err)
