@@ -47,7 +47,7 @@ func MinDistFromCorpus(c *corpus.Corpus, dim, minDist int) FilterFunc {
 			if err != nil {
 				return false, errors.Wrap(err, "hash.Distance")
 			}
-			if dist <= minDist && dist != 0 { // TODO temp adding a special 0 case here
+			if dist <= minDist {
 				log.Tracef("MinDistFromCorpus(%s/%s): %v <= %v", c.Name(), file, dist, minDist)
 				return false, nil
 			}

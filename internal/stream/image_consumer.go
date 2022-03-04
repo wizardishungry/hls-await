@@ -19,9 +19,12 @@ import (
 )
 
 const (
-	goimagehashDim = 8     // should be power of 2, color bars show noise at 16
-	imagescoreMin  = 0.012 // TODO not great: jpeg specific, also computes size prior to compression which should be constant for image dimensions
+	goimagehashDim = 8    // should be power of 2, color bars show noise at 16
+	imagescoreMin  = 0.06 // GZIP specific, calculated from output of TestScoringAlgos
 )
+
+// We picked gzip because it had the best results and good speed + low allocs
+var imageScorerAlgo = imagescore.NewGzipScorer
 
 func (s *Stream) consumeImages(ctx context.Context) error {
 	log := logger.Entry(ctx)
@@ -33,7 +36,7 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 
 	bs := imagescore.NewBulkScore(ctx,
 		func() imagescore.ImageScorer {
-			return imagescore.NewJpegScorer()
+			return imageScorerAlgo()
 		},
 	)
 

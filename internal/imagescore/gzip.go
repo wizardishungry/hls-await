@@ -2,12 +2,13 @@ package imagescore
 
 import (
 	"bytes"
-	"compress/gzip"
+	gzip "compress/flate"
 	"context"
 	"encoding/gob"
 	"image"
 )
 
+// GzipScorer actually uses flate instead
 type GzipScorer struct {
 	uncompressedImageSizeCache
 }
@@ -18,14 +19,12 @@ func NewGzipScorer() *GzipScorer { return &GzipScorer{} }
 
 func (gs *GzipScorer) ScoreImage(ctx context.Context, img image.Image) (float64, error) {
 	buf := &discardCounter{}
-	img256 := downSampleImage(img)
 
-	origBuf, err := imageBytes(img256)
+	origBuf, err := imageBytes(img)
 	if err != nil {
 		return -1, err
 	}
-
-	enc, err := gzip.NewWriterLevel(buf, gzip.BestSpeed)
+	enc, err := gzip.NewWriter(buf, gzip.DefaultCompression)
 	if err != nil {
 		return 0, err
 

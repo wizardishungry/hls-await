@@ -30,6 +30,22 @@ var standardTestCases = []struct {
 		desc:   "gif",
 		scoreF: func() ImageScorer { return NewGifScorer() },
 	},
+	{
+		desc:   "png256",
+		scoreF: func() ImageScorer { return NewDownsampler(NewPngScorer()) },
+	},
+	{
+		desc:   "gzip256",
+		scoreF: func() ImageScorer { return NewDownsampler(NewGzipScorer()) },
+	},
+	{
+		desc:   "jpeg256",
+		scoreF: func() ImageScorer { return NewDownsampler(NewJpegScorer()) },
+	},
+	{
+		desc:   "gif256",
+		scoreF: func() ImageScorer { return NewDownsampler(NewGifScorer()) },
+	},
 }
 
 func TestScoringAlgos(t *testing.T) {
@@ -41,6 +57,8 @@ func TestScoringAlgos(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			scorer := tC.scoreF()
+			var interestingMin, uninterestingMax float64
+			var interestingMax, uninterestingMin float64
 
 			for _, iC := range images {
 				c := iC.corpus
@@ -56,13 +74,28 @@ func TestScoringAlgos(t *testing.T) {
 					// fmt.Printf("%s: %s/%s %f\n", tC.desc, class, filename, score)
 				}
 				slices.Sort(scores)
+				if class == "interesting" {
+					interestingMin = scores[0]
+					interestingMax = scores[len(scores)-1]
+				}
+				if class == "uninteresting" {
+					uninterestingMin = scores[0]
+					uninterestingMax = scores[len(scores)-1]
+				}
 				defer func(class string) {
 					min := scores[0]
 					max := scores[len(scores)-1]
+					return
 					fmt.Printf("%s/%s: %.4f %.4f\n", tC.desc, class, min, max)
 				}(class)
 			}
-
+			diff := interestingMin - uninterestingMax
+			// fmt.Printf("%s: %.4f - %.4f = %.4f\n", tC.desc, interestingMin, uninterestingMax, diff)
+			scale := func(i float64) float64 { return 1.0 / (interestingMax - uninterestingMin) * (i - uninterestingMin) }
+			diff = scale(interestingMin) - scale(uninterestingMax)
+			_ = uninterestingMin
+			fmt.Printf("%s scaled: %.4f - %.4f = %.4f\n", tC.desc, scale(interestingMin), scale(uninterestingMax), diff) // larger is better
+			fmt.Printf("%s if you want to use it pick a threshold in this range: %.4f - %.4f\n", tC.desc, interestingMin, uninterestingMax)
 		})
 	}
 }
@@ -111,7 +144,7 @@ func getTestingImages(t *testing.T) []imageClass {
 
 	return []imageClass{
 		{"interesting", mustLoad("interesting")},
-		{"testpatterns", mustLoad("testpatterns")},
+		// {"testpatterns", mustLoad("testpatterns")},
 		{"uninteresting", mustLoad("uninteresting")},
 	}
 }

@@ -18,9 +18,7 @@ func (js *JpegScorer) ScoreImage(ctx context.Context, img image.Image) (float64,
 	opts := jpeg.Options{Quality: jpeg.DefaultQuality}
 	buf := &discardCounter{}
 
-	img256 := downSampleImage(img)
-
-	err := jpeg.Encode(buf, img256, &opts)
+	err := jpeg.Encode(buf, img, &opts)
 	if err != nil {
 		return 0, err
 	}

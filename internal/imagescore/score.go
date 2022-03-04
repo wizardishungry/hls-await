@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/color/palette"
-	"image/draw"
 	"io"
 	"sync/atomic"
 
@@ -85,12 +83,6 @@ func uncompressedImageSize(img image.Image) (float64, error) {
 	}
 
 	return float64(buf.count), nil
-}
-
-func downSampleImage(img image.Image) image.Image {
-	out := image.NewPaletted(img.Bounds(), palette.WebSafe)
-	draw.Draw(out, out.Rect, img, image.Point{}, draw.Over)
-	return out
 }
 
 func init() {
