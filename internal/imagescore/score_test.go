@@ -36,6 +36,7 @@ func TestScoringAlgos(t *testing.T) {
 
 	for _, tC := range standardTestCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 			scorer := tC.scoreF()
 
