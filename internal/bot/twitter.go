@@ -36,13 +36,14 @@ const (
 var (
 	_, b, _, _ = runtime.Caller(0)
 
-	// root folder of this project
+	// root folder of this project. TODO: does not work with trimpath or builds
 	root = filepath.Join(filepath.Dir(b), "../..")
 )
 
 func newClient() *twitter.Client {
 	path := root + "/.env"
 	myEnv, err := godotenv.Read(path)
+
 	if err != nil {
 		panic(err)
 	}
@@ -127,7 +128,7 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 		case <-ticker.C:
 			srcImages := images
 			images = newImageSlice()
-			go func() {
+			tryPost := func() {
 				ctx, cancel := context.WithTimeout(ctx, postTimeout)
 				defer cancel()
 				unusedImages, err := b.maybeDoPost(ctx, srcImages)
@@ -141,7 +142,8 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 					log.Warn("unused images discarded")
 				}
 				ticker.Reset(b.calcUpdateInterval(ctx))
-			}()
+			}
+			go tryPost()
 		}
 		limit := len(images) - maxQueuedImages*maxQueuedImagesMult
 		if limit > 0 {
