@@ -71,7 +71,8 @@ type Stream struct {
 	bot       *bot.Bot
 	sendToBot int32 // for atomic
 
-	client *http.Client
+	client       *http.Client
+	frameCounter int
 }
 
 func newStream() *Stream {
