@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/corpus"
+	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate sh -c "go test ./... -run '^$' -benchmem -bench . | tee benchresult.txt"
@@ -22,7 +24,7 @@ func TestMinDistFromCorpus(t *testing.T) {
 	}
 
 	f := DefaultMinDistFromCorpus(testPatterns)
-	ctx := context.Background()
+	ctx := testCtx()
 	for name, img := range interesting.ImagesMap() {
 		ok, err := f(ctx, img)
 		if err != nil {
@@ -41,7 +43,7 @@ func TestMinDistFromCorpus_rejects_self(t *testing.T) {
 	}
 
 	f := DefaultMinDistFromCorpus(testPatterns)
-	ctx := context.Background()
+	ctx := testCtx()
 	for name, img := range testPatterns.ImagesMap() {
 		if name != "FM5muAHXIAMc01i.png" {
 			continue
@@ -69,7 +71,7 @@ func BenchmarkMinDistFromCorpus(b *testing.B) {
 	rect := image.Rectangle{Min: image.Point{}, Max: image.Point{X: xDim, Y: yDim}}
 
 	img := image.NewRGBA(rect)
-	ctx := context.Background()
+	ctx := benchCtx()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		_, err := f(ctx, img)
@@ -78,4 +80,15 @@ func BenchmarkMinDistFromCorpus(b *testing.B) {
 		}
 	}
 
+}
+
+func benchCtx() context.Context {
+	logr := logrus.New()
+	logr.Level = logrus.ErrorLevel
+	return logger.WithLogEntry(context.Background(), logrus.NewEntry(logr))
+}
+
+func testCtx() context.Context {
+	logr := logrus.New()
+	return logger.WithLogEntry(context.Background(), logrus.NewEntry(logr))
 }

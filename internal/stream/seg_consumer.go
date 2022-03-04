@@ -83,7 +83,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			// }
 
 			var copyDur time.Duration
-			copyWorker := func() {
+			go func() {
 				copyStart := time.Now()
 				if _, err := io.Copy(w, tsResp.Body); err != nil {
 					log.WithError(err).Warn("io.Copy")
@@ -91,8 +91,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 				w.Close()
 				// TODO: not sure we can rely on this (has to do with pipe ffmpeg plugin)
 				copyDur = time.Now().Sub(copyStart)
-			}
-			go copyWorker()
+			}()
 
 			rFD := r.Fd()
 

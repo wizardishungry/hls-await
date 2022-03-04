@@ -128,7 +128,7 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 		case <-ticker.C:
 			srcImages := images
 			images = newImageSlice()
-			tryPost := func() {
+			go func() {
 				ctx, cancel := context.WithTimeout(ctx, postTimeout)
 				defer cancel()
 				unusedImages, err := b.maybeDoPost(ctx, srcImages)
@@ -142,8 +142,7 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 					log.Warn("unused images discarded")
 				}
 				ticker.Reset(b.calcUpdateInterval(ctx))
-			}
-			go tryPost()
+			}()
 		}
 		limit := len(images) - maxQueuedImages*maxQueuedImagesMult
 		if limit > 0 {

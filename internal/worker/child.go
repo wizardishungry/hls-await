@@ -63,7 +63,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 	}()
 
 	c.memstatsC = make(chan error, 1)
-	memstatsWorker := func() {
+	go func() {
 		bToMb := func(b uint64) float64 {
 			return float64(b) / 1024 / 1024
 		}
@@ -145,8 +145,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 			f("alloc size %.2fmb; rss size %.2fmb", allocsF, rssF)
 			runtime.GC()
 		}
-	}
-	go memstatsWorker()
+	}()
 
 	for ctx.Err() == nil {
 		// NB: this does not support multiple client connections, all clients share the same parent Worker
@@ -186,7 +185,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 			}
 
 			wg.Add(1)
-			fdConnWorker := func() {
+			go func() {
 				defer wg.Done()
 
 				fdConn := conn.(*net.UnixConn)
@@ -206,8 +205,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 					case fds <- fd:
 					}
 				}
-			}
-			go fdConnWorker()
+			}()
 
 			return nil
 		}()

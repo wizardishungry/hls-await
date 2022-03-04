@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"os"
@@ -52,13 +53,12 @@ func (s *Stream) consumeImages(ctx context.Context) error {
 				log.Println("photo time!")
 			}
 		case img := <-s.imageChan:
-			runConsumeImage := func(ctx context.Context, filterFunc filter.FilterFunc, img image.Image, oneShot bool, frameCount int) {
+			go func(ctx context.Context, filterFunc filter.FilterFunc, img image.Image, oneShot bool, frameCount int) {
 				err := s.consumeImage(ctx, filterFunc, img, oneShot, frameCount)
 				if err != nil {
 					log.WithError(err).Warn("consumeImage")
 				}
-			}
-			go runConsumeImage(ctx, filterFunc, img, oneShot, frameCount)
+			}(ctx, filterFunc, img, oneShot, frameCount)
 			if oneShot {
 				oneShot = false
 			}
@@ -149,7 +149,7 @@ func (s *Stream) consumeImage(ctx context.Context,
 		}
 		if s.flags.Flicker {
 			// TODO this is unimpressive now that images are fractioned
-			log.Print("\033[H\033[2J") // flicker
+			fmt.Print("\033[H\033[2J") // flicker
 		}
 		ansi.Draw()
 		return nil
