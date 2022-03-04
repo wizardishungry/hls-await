@@ -13,6 +13,7 @@ import (
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/eliukblau/pixterm/pkg/ansimage"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -68,7 +69,13 @@ func (s *Stream) consumeImage(ctx context.Context,
 	oneShot bool,
 	frameCount int,
 ) error {
-	log := logger.Entry(ctx)
+
+	withFrameCount := func(ctx context.Context, frameCount int) (context.Context, *logrus.Entry) {
+		log := logger.Entry(ctx).WithField("frame_count", frameCount)
+		logger.WithLogEntry(ctx, log)
+		return ctx, log
+	}
+	ctx, log := withFrameCount(ctx, frameCount)
 
 	entry := &outputImageEntry{
 		counter: frameCount,
@@ -96,15 +103,16 @@ func (s *Stream) consumeImage(ctx context.Context,
 			if entry == nil {
 				return
 			}
+			ctx, log := withFrameCount(ctx, entry.counter)
 			if !entry.done {
 				s.outputImages.Push(entry)
 				return
 			}
 			if entry.passedFilter {
-				log.Tracef("[%d] passed filter", entry.counter)
+				log.Trace("passed filter")
 				s.PushEvent(ctx, "unsteady")
 			} else {
-				log.Tracef("[%d] failed filter", entry.counter)
+				log.Trace("failed filter")
 				s.PushEvent(ctx, "steady")
 			}
 			if entry.passedFilter && atomic.LoadInt32(&s.sendToBot) != 0 && s.bot != nil {
