@@ -1,32 +1,56 @@
-name                old time/op    new time/op    delta
-BulkScores/png-16     2.03ms ± 0%    2.52ms ± 0%   +23.88%
-BulkScores/gzip-16    2.26ms ± 0%    0.88ms ± 0%   -61.08%
-BulkScores/jpeg-16    2.75ms ± 0%    0.72ms ± 0%   -73.77%
-BulkScores/gif-16     33.4ms ± 0%    35.0ms ± 0%    +4.69%
-ScoreImage/png-16     18.5ms ± 0%    20.1ms ± 0%    +8.53%
-ScoreImage/gzip-16    19.6ms ± 0%     1.6ms ± 0%   -91.75%
-ScoreImage/jpeg-16    26.3ms ± 0%     6.8ms ± 0%   -73.99%
-ScoreImage/gif-16      264ms ± 0%     256ms ± 0%    -2.95%
-[Geo mean]            13.4ms          6.7ms        -50.08%
+name                   old time/op    new time/op    delta
+BulkScores/png-16        2.52ms ± 0%    2.25ms ± 0%  -10.48%
+BulkScores/gzip-16        879µs ± 0%     215µs ± 0%  -75.57%
+BulkScores/jpeg-16        722µs ± 0%     723µs ± 0%   +0.19%
+BulkScores/gif-16        35.0ms ± 0%    33.4ms ± 0%   -4.63%
+BulkScores/png256-16     2.00ms ± 0%    2.01ms ± 0%   +0.19%
+BulkScores/gzip256-16    2.04ms ± 0%    1.98ms ± 0%   -2.70%
+BulkScores/jpeg256-16    2.83ms ± 0%    3.05ms ± 0%   +7.67%
+BulkScores/gif256-16     2.08ms ± 0%    2.03ms ± 0%   -2.70%
+ScoreImage/png-16        20.1ms ± 0%    19.6ms ± 0%   -2.48%
+ScoreImage/gzip-16       1.62ms ± 0%    0.11ms ± 0%  -93.21%
+ScoreImage/jpeg-16       6.85ms ± 0%    6.87ms ± 0%   +0.34%
+ScoreImage/gif-16         256ms ± 0%     257ms ± 0%   +0.30%
+ScoreImage/png256-16     19.3ms ± 0%    20.0ms ± 0%   +3.15%
+ScoreImage/gzip256-16    20.1ms ± 0%    20.2ms ± 0%   +0.56%
+ScoreImage/jpeg256-16    27.4ms ± 0%    27.4ms ± 0%   +0.13%
+ScoreImage/gif256-16     20.6ms ± 0%    20.4ms ± 0%   -1.22%
+[Geo mean]               6.71ms         5.15ms       -23.22%
 
-name                old alloc/op   new alloc/op   delta
-BulkScores/png-16     5.52MB ± 0%    5.12MB ± 0%    -7.40%
-BulkScores/gzip-16    8.17MB ± 0%    6.51MB ± 0%   -20.29%
-BulkScores/jpeg-16    5.54MB ± 0%    1.70MB ± 0%   -69.31%
-BulkScores/gif-16     3.80MB ± 0%    3.32MB ± 0%   -12.67%
-ScoreImage/png-16     3.81MB ± 0%    3.40MB ± 0%   -10.78%
-ScoreImage/gzip-16    6.38MB ± 0%    4.56MB ± 0%   -28.56%
-ScoreImage/jpeg-16    3.82MB ± 0%    0.02MB ± 0%   -99.37%
-ScoreImage/gif-16     1.36MB ± 0%    1.36MB ± 0%     0.00%
-[Geo mean]            4.31MB         3.00MB        -30.40%
+name                   old alloc/op   new alloc/op   delta
+BulkScores/png-16        5.12MB ± 0%    5.13MB ± 0%   +0.23%
+BulkScores/gzip-16       6.51MB ± 0%    2.48MB ± 0%  -61.89%
+BulkScores/jpeg-16       1.70MB ± 0%    1.70MB ± 0%   -0.22%
+BulkScores/gif-16        3.32MB ± 0%    3.85MB ± 0%  +16.17%
+BulkScores/png256-16     5.46MB ± 0%    5.46MB ± 0%   -0.01%
+BulkScores/gzip256-16    8.08MB ± 0%    6.24MB ± 0%  -22.73%
+BulkScores/jpeg256-16    5.45MB ± 0%    5.46MB ± 0%   +0.09%
+BulkScores/gif256-16     5.52MB ± 0%    5.51MB ± 0%   -0.09%
+ScoreImage/png-16        3.40MB ± 0%    3.40MB ± 0%    0.00%
+ScoreImage/gzip-16       4.56MB ± 0%    0.81MB ± 0%  -82.30%
+ScoreImage/jpeg-16       23.9kB ± 0%    24.1kB ± 0%   +0.96%
+ScoreImage/gif-16        1.36MB ± 0%    1.36MB ± 0%    0.00%
+ScoreImage/png256-16     3.78MB ± 0%    3.78MB ± 0%   +0.04%
+ScoreImage/gzip256-16    6.34MB ± 0%    4.56MB ± 0%  -28.11%
+ScoreImage/jpeg256-16    3.77MB ± 0%    3.76MB ± 0%   -0.20%
+ScoreImage/gif256-16     3.83MB ± 0%    3.83MB ± 0%    0.00%
+[Geo mean]               3.00MB         2.47MB       -17.75%
 
-name                old allocs/op  new allocs/op  delta
-BulkScores/png-16       415k ± 0%      829k ± 0%   +99.89%
-BulkScores/gzip-16      415k ± 0%        0k ± 0%   -99.98%
-BulkScores/jpeg-16      415k ± 0%        0k ± 0%  -100.00%
-BulkScores/gif-16       42.0 ± 0%      40.0 ± 0%    -4.76%
-ScoreImage/png-16       415k ± 0%      829k ± 0%   +99.89%
-ScoreImage/gzip-16      415k ± 0%        0k ± 0%   -99.99%
-ScoreImage/jpeg-16      415k ± 0%        0k ± 0%  -100.00%
-ScoreImage/gif-16       24.0 ± 0%      24.0 ± 0%     0.00%
-[Geo mean]             38.8k          11.5k        -70.33%
+name                   old allocs/op  new allocs/op  delta
+BulkScores/png-16          829k ± 0%      829k ± 0%    0.00%
+BulkScores/gzip-16         63.0 ± 0%      18.0 ± 0%  -71.43%
+BulkScores/jpeg-16         9.00 ± 0%      9.00 ± 0%    0.00%
+BulkScores/gif-16          40.0 ± 0%      41.0 ± 0%   +2.50%
+BulkScores/png256-16       415k ± 0%      415k ± 0%    0.00%
+BulkScores/gzip256-16      415k ± 0%      415k ± 0%   -0.01%
+BulkScores/jpeg256-16      415k ± 0%      415k ± 0%    0.00%
+BulkScores/gif256-16       415k ± 0%      415k ± 0%   -0.00%
+ScoreImage/png-16          829k ± 0%      829k ± 0%    0.00%
+ScoreImage/gzip-16         58.0 ± 0%      14.0 ± 0%  -75.86%
+ScoreImage/jpeg-16         5.00 ± 0%      5.00 ± 0%    0.00%
+ScoreImage/gif-16          24.0 ± 0%      24.0 ± 0%    0.00%
+ScoreImage/png256-16       415k ± 0%      415k ± 0%    0.00%
+ScoreImage/gzip256-16      415k ± 0%      415k ± 0%   -0.01%
+ScoreImage/jpeg256-16      415k ± 0%      415k ± 0%    0.00%
+ScoreImage/gif256-16       415k ± 0%      415k ± 0%    0.00%
+[Geo mean]                11.5k           9.8k       -15.26%

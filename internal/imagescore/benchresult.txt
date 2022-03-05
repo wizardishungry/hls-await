@@ -2,21 +2,21 @@ goos: linux
 goarch: amd64
 pkg: github.com/WIZARDISHUNGRY/hls-await/internal/imagescore
 cpu: AMD Ryzen 7 2700X Eight-Core Processor         
-BenchmarkBulkScores/png-16         	     531	   2517030 ns/op	 5116121 B/op	  829451 allocs/op
-BenchmarkBulkScores/gzip-16        	    1230	    879198 ns/op	 6510317 B/op	      63 allocs/op
-BenchmarkBulkScores/jpeg-16        	    1572	    721750 ns/op	 1700386 B/op	       9 allocs/op
-BenchmarkBulkScores/gif-16         	      31	  34994508 ns/op	 3317571 B/op	      40 allocs/op
-BenchmarkBulkScores/png256-16      	     594	   2002496 ns/op	 5463014 B/op	  414951 allocs/op
-BenchmarkBulkScores/gzip256-16     	     578	   2036871 ns/op	 8077563 B/op	  414802 allocs/op
-BenchmarkBulkScores/jpeg256-16     	     362	   2832201 ns/op	 5453066 B/op	  414733 allocs/op
-BenchmarkBulkScores/gif256-16      	     493	   2083788 ns/op	 5517937 B/op	  414736 allocs/op
-BenchmarkScoreImage/png-16         	      56	  20098972 ns/op	 3399750 B/op	  829446 allocs/op
-BenchmarkScoreImage/gzip-16        	     735	   1617534 ns/op	 4559677 B/op	      58 allocs/op
-BenchmarkScoreImage/jpeg-16        	     171	   6846885 ns/op	   23879 B/op	       5 allocs/op
-BenchmarkScoreImage/gif-16         	       4	 255880418 ns/op	 1358946 B/op	      24 allocs/op
-BenchmarkScoreImage/png256-16      	      52	  19348615 ns/op	 3778744 B/op	  414946 allocs/op
-BenchmarkScoreImage/gzip256-16     	      57	  20107559 ns/op	 6344204 B/op	  414796 allocs/op
-BenchmarkScoreImage/jpeg256-16     	      42	  27394635 ns/op	 3772530 B/op	  414728 allocs/op
-BenchmarkScoreImage/gif256-16      	      58	  20649566 ns/op	 3831946 B/op	  414730 allocs/op
+BenchmarkBulkScores/png-16         	     500	   2253321 ns/op	 5127812 B/op	  829451 allocs/op
+BenchmarkBulkScores/gzip-16        	    4657	    214747 ns/op	 2481390 B/op	      18 allocs/op
+BenchmarkBulkScores/jpeg-16        	    1658	    723147 ns/op	 1696681 B/op	       9 allocs/op
+BenchmarkBulkScores/gif-16         	      30	  33373149 ns/op	 3853986 B/op	      41 allocs/op
+BenchmarkBulkScores/png256-16      	     604	   2006288 ns/op	 5462663 B/op	  414951 allocs/op
+BenchmarkBulkScores/gzip256-16     	     548	   1981916 ns/op	 6241574 B/op	  414741 allocs/op
+BenchmarkBulkScores/jpeg256-16     	     331	   3049440 ns/op	 5457710 B/op	  414733 allocs/op
+BenchmarkBulkScores/gif256-16      	     562	   2027606 ns/op	 5513125 B/op	  414735 allocs/op
+BenchmarkScoreImage/png-16         	      56	  19601252 ns/op	 3399750 B/op	  829446 allocs/op
+BenchmarkScoreImage/gzip-16        	   10000	    109849 ns/op	  807125 B/op	      14 allocs/op
+BenchmarkScoreImage/jpeg-16        	     169	   6870268 ns/op	   24109 B/op	       5 allocs/op
+BenchmarkScoreImage/gif-16         	       4	 256655066 ns/op	 1358946 B/op	      24 allocs/op
+BenchmarkScoreImage/png256-16      	      60	  19957254 ns/op	 3780092 B/op	  414946 allocs/op
+BenchmarkScoreImage/gzip256-16     	      52	  20220332 ns/op	 4560636 B/op	  414737 allocs/op
+BenchmarkScoreImage/jpeg256-16     	      38	  27429895 ns/op	 3764956 B/op	  414728 allocs/op
+BenchmarkScoreImage/gif256-16      	      58	  20398301 ns/op	 3831946 B/op	  414730 allocs/op
 PASS
-ok  	github.com/WIZARDISHUNGRY/hls-await/internal/imagescore	26.919s
+ok  	github.com/WIZARDISHUNGRY/hls-await/internal/imagescore	26.263s

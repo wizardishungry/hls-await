@@ -1,8 +1,8 @@
 name                  old time/op    new time/op    delta
-MinDistFromCorpus-16    5.26ms ± 0%    5.30ms ± 0%  +0.87%
+MinDistFromCorpus-16    5.30ms ± 0%    5.76ms ± 0%  +8.56%
 
 name                  old alloc/op   new alloc/op   delta
-MinDistFromCorpus-16    3.82MB ± 0%    3.82MB ± 0%  -0.00%
+MinDistFromCorpus-16    3.82MB ± 0%    3.82MB ± 0%  +0.00%
 
 name                  old allocs/op  new allocs/op  delta
 MinDistFromCorpus-16     67.9k ± 0%     67.9k ± 0%   0.00%
