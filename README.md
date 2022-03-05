@@ -24,3 +24,10 @@ and [posts screencaps to Twitter](https://twitter.com/KCTV_bot).
 ## State Machine
 
 ![alt](./fsm.svg)
+
+## Cgo dependencies
+
+```bash
+sudo apt-get install -y libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
+sudo apt install libavdevice-dev  libavfilter-dev libavfilter7 libavdevice58 
+```

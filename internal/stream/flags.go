@@ -21,6 +21,7 @@ type flags struct {
 	OneShot        bool
 	Worker         bool
 	Privsep        bool
+	WorkerMemQuota int
 }
 
 func WithFlags() StreamOption {
@@ -45,6 +46,8 @@ func getFlags() *flags {
 	flag.BoolVar(&f.Worker, "worker", false, "used by process separation, not for end user use")
 	flag.BoolVar(&f.Privsep, "privsep", true, "enable process separation")
 	flag.StringVar(&f.LogLevel, "loglevel", "debug", strings.Join(levels, " | "))
+	flag.IntVar(&f.WorkerMemQuota, "worker-memory", 2000, "memory quota for child worker (megabytes)")
+
 	return &f
 }
 

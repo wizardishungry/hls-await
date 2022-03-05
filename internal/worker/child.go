@@ -26,6 +26,7 @@ const (
 type Child struct {
 	once      sync.Once
 	memstatsC chan error
+	MemQuota  int
 }
 
 func (c *Child) Start(ctx context.Context) error {
@@ -137,9 +138,7 @@ func (c *Child) runWorker(ctx context.Context) error {
 			rssF := bToMb(rss)
 
 			f := log.Debugf
-
-			const quota = 2000 // TOO move somewhere else; looks like the CGO stuff leaks :)
-			if allocsF > quota || rssF > quota {
+			if rssF > float64(c.MemQuota) {
 				f = log.Panicf // force child to restart (or perhaps use a panic handler)
 			}
 			f("alloc size %.2fmb; rss size %.2fmb", allocsF, rssF)

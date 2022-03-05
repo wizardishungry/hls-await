@@ -95,7 +95,7 @@ func (s *Stream) newFSM(ctx context.Context) *FSM {
 
 func newTimer(target *fsm.FSM) chan string {
 
-	c := make(chan string, 1)
+	c := make(chan string, 100) // FIXME: try to avoid a deadlock here when rapidly receiving frames; this should be reworked
 
 	const (
 		duration = 30 * time.Second // TODO move to global config
