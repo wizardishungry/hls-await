@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"runtime"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -39,7 +40,7 @@ func (bs *BulkScore) ScoreImage(ctx context.Context, img image.Image) (float64, 
 		C:   make(chan bulkScoreResult, 1),
 	}
 	select {
-	case bs.input <- bsr:
+	case bs.input <- bsr: // TODO could panic
 	case <-ctx.Done():
 		return -1, ctx.Err()
 	}
@@ -55,9 +56,16 @@ func (bs *BulkScore) ScoreImage(ctx context.Context, img image.Image) (float64, 
 }
 
 func (bs *BulkScore) loops(ctx context.Context, numProcs int) {
+	defer close(bs.input)
+	var wg sync.WaitGroup
+	wg.Add(numProcs)
 	for i := 0; i < numProcs; i++ {
-		go bs.loop(ctx)
+		go func() {
+			defer wg.Done()
+			bs.loop(ctx)
+		}()
 	}
+	wg.Wait()
 }
 
 func (bs *BulkScore) loop(ctx context.Context) {
@@ -67,13 +75,14 @@ func (bs *BulkScore) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case req := <-bs.input:
-			score, err := scorer.ScoreImage(ctx, req.img)
-			select {
-			case <-ctx.Done():
-				close(req.C)
-				return
-			case req.C <- bulkScoreResult{score, err}:
-			}
+			func() {
+				defer close(req.C)
+				score, err := scorer.ScoreImage(ctx, req.img)
+				select {
+				case <-ctx.Done():
+				case req.C <- bulkScoreResult{score, err}:
+				}
+			}()
 		}
 	}
 }
