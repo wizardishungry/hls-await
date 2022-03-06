@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
@@ -11,9 +13,30 @@ import (
 	"github.com/grafov/m3u8"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 const segmentMaxDuration = 30 * time.Second
+
+var maxPipeSize = func() int {
+	if runtime.GOOS != "linux" {
+		return -1
+	}
+
+	buf, err := os.ReadFile("/proc/sys/fs/pipe-max-size")
+	if err != nil {
+		err := errors.Wrapf(err, "get max pipesize: ReadFile")
+		panic(err)
+	}
+
+	maxPipeSize, err := strconv.ParseInt(string(buf), 10, 64)
+	if err != nil {
+		err := errors.Wrapf(err, "get max pipesize: ParseInt")
+		panic(err)
+	}
+
+	return int(maxPipeSize)
+}()
 
 func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist) error {
 	log := logger.Entry(ctx)
@@ -76,11 +99,12 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			defer r.Close()
 			defer w.Close()
 
-			// TODO
-			// i, err := unix.FcntlInt(w.Fd(), unix.F_SETPIPE_SZ, 1048576) // /proc/sys/fs/pipe-max-size
-			// if err != nil {
-			// 	log.WithError(err).Errorf("F_SETPIPE_SZ: %d", i)
-			// }
+			if maxPipeSize > 0 {
+				i, err := unix.FcntlInt(w.Fd(), unix.F_SETPIPE_SZ, maxPipeSize)
+				if err != nil {
+					log.WithError(err).Errorf("F_SETPIPE_SZ: %d", i)
+				}
+			}
 
 			var copyDur time.Duration
 			go func() {
