@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"image/png"
 	"time"
 
@@ -14,18 +13,48 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image.Image, error) {
+const (
+	maxAge = 2 * updateIntervalMinutes // Don't post old images
+	minAge = 90 * time.Second
+)
+
+func (b *Bot) maybeDoPost(ctx context.Context, srcImages []imageRecord) ([]imageRecord, error) {
 	log := logger.Entry(ctx)
 
 	const mimeType = "image/png"
+
+	// Don't post old images
+	firstGood := -1
+	for i, img := range srcImages {
+		if firstGood == -1 && time.Now().Sub(img.time) < maxAge {
+			firstGood = i
+		}
+	}
+
+	if firstGood < 0 {
+		log.WithField("num_images", len(srcImages)).Info("discarding all images due to age")
+		return nil, nil
+	}
+	if firstGood != 0 {
+		log.WithField("num_images", len(srcImages)-firstGood).Info("discarding some images due to age")
+		srcImages = srcImages[firstGood:]
+	}
+
 	if len(srcImages) < numImages {
 		log.WithField("num_images", len(srcImages)).Info("not enough images to post")
 		return srcImages, nil
 	}
 
+	if age := time.Now().Sub(srcImages[0].time); age < minAge {
+		log.WithField("num_images", len(srcImages)).
+			WithField("age", age).
+			Info("images are too fresh too consider posting")
+		return srcImages, nil
+	}
+
 	// Try to pick a good spread of images
 	offset := len(srcImages) / numImages
-	images := []image.Image{}
+	images := make([]imageRecord, 0, numImages)
 	for i := 0; i < numImages; i++ {
 		img := srcImages[i*offset+(offset/2)] // for 100: 12,37,62,97 8: 1,3,5,7 12: 1,4,7,10; 16: 2,6,10,14 1000: 125,375,625,875
 		images = append(images, img)
@@ -48,7 +77,7 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []image.Image) ([]image
 		i := i
 		g.Go(func() error {
 			f := &bytes.Buffer{}
-			err := png.Encode(f, img)
+			err := png.Encode(f, img.image)
 			if err != nil {
 				return errors.Wrap(err, "png.Encode")
 			}

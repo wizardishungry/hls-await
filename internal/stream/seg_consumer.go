@@ -29,7 +29,7 @@ var maxPipeSize = func() int {
 		panic(err)
 	}
 
-	maxPipeSize, err := strconv.ParseInt(string(buf), 10, 64)
+	maxPipeSize, err := strconv.ParseInt(string(buf[:len(buf)-1]), 10, 64)
 	if err != nil {
 		err := errors.Wrapf(err, "get max pipesize: ParseInt")
 		panic(err)

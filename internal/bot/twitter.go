@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/WIZARDISHUNGRY/hls-await/internal/imagescore"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
@@ -24,7 +23,7 @@ const (
 	updateIntervalMinutes = 10
 	updateInterval        = updateIntervalMinutes * time.Minute
 	minUpdateInterval     = 20 * time.Second // used for tweeting quickly after a manual restart
-	numImages             = 4                // per post
+	numImages             = 4                // per post, think 4 is max for twitter
 	maxQueuedIntervals    = 4
 	maxQueuedImages       = 25 * updateIntervalMinutes * 60 * maxQueuedIntervals * ImageFraction // about 4 updateIntervals at 25fps x the image fraction
 	maxQueuedImagesMult   = 1.5
@@ -69,7 +68,6 @@ type Bot struct {
 	c          chan image.Image
 	lastPosted time.Time
 	lastID     int64
-	bulkScorer *imagescore.BulkScore
 }
 
 func NewBot() *Bot {
@@ -97,19 +95,13 @@ func (b *Bot) Chan() chan<- image.Image {
 func (b *Bot) consumeImages(ctx context.Context) error {
 	log := logger.Entry(ctx)
 
-	b.bulkScorer = imagescore.NewBulkScore(ctx,
-		func() imagescore.ImageScorer {
-			return imagescore.NewJpegScorer()
-		},
-	)
-
-	newImageSlice := func() []image.Image { return make([]image.Image, 0, maxQueuedImages) }
+	newImageSlice := func() []imageRecord { return make([]imageRecord, 0, maxQueuedImages) }
 
 	images := newImageSlice()
 
 	ticker := time.NewTicker(b.calcUpdateInterval(ctx))
 	defer ticker.Stop()
-	unusedImagesC := make(chan []image.Image, 1)
+	unusedImagesC := make(chan []imageRecord, 1)
 	defer close(unusedImagesC)
 	for {
 		select {
@@ -119,7 +111,10 @@ func (b *Bot) consumeImages(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			images = append(images, img)
+			images = append(images, imageRecord{
+				image: img,
+				time:  time.Now(),
+			})
 			log.WithField("num_images", len(images)).Trace("receiving image")
 		case imgs := <-unusedImagesC:
 			if len(imgs) > 0 {
@@ -171,4 +166,10 @@ func (b *Bot) calcUpdateInterval(ctx context.Context) (dur time.Duration) {
 	}
 	log.Warn("no last posted")
 	return minUpdateInterval
+}
+
+// imageRecord contains an image with some annotations (so we don't post 4 photos from the same segment)
+type imageRecord struct {
+	image image.Image
+	time  time.Time
 }

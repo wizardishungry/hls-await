@@ -1,6 +1,6 @@
 package heap
 
-//  https://gist.github.com/nwillc/554847806891a41e7bd32041308dfb40
+// https://gist.github.com/nwillc/554847806891a41e7bd32041308dfb40
 // https://levelup.gitconnected.com/a-heap-of-go-generics-cd20f362a76
 
 type Heap[T any] struct {

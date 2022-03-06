@@ -77,7 +77,6 @@ func (uisc *uncompressedImageSizeCache) size(img image.Image) (float64, error) {
 func uncompressedImageSize(img image.Image) (float64, error) {
 	buf := &discardCounter{}
 	err := gob.NewEncoder(buf).Encode(&img)
-	// err = binary.Write(buf, binary.LittleEndian, img.(*image.RGBA).Pix)
 	if err != nil {
 		return -1, err
 	}
@@ -86,7 +85,7 @@ func uncompressedImageSize(img image.Image) (float64, error) {
 }
 
 func init() {
-	gob.Register(&image.RGBA{}) // needed because this is contained in interface
+	gob.Register(&image.RGBA{}) // need because this is contained in interface
 	gob.Register(&color.RGBA{})
 	gob.Register(&image.Paletted{})
 }

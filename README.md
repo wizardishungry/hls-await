@@ -28,6 +28,14 @@ and [posts screencaps to Twitter](https://twitter.com/KCTV_bot).
 ## Cgo dependencies
 
 ```bash
-sudo apt-get install -y libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
-sudo apt install libavdevice-dev  libavfilter-dev libavfilter7 libavdevice58 
+sudo apt-get install -y libavfilter7 libavdevice58 libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
 ```
+
+# Known to work on
+
+- Ubuntu 21.10
+- macOS - ffmpeg libraries installed via Hombrew. Not validated recently; suspect a bunch of work to be done.
+
+# System requirements
+
+- Probably > 2 gigabytes of free memory?
