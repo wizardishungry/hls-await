@@ -23,6 +23,11 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []imageRecord) ([]image
 
 	const mimeType = "image/png"
 
+	if len(srcImages) < numImages {
+		log.WithField("num_images", len(srcImages)).Info("not enough images to post")
+		return srcImages, nil
+	}
+
 	// Don't post old images
 	firstGood := -1
 	for i, img := range srcImages {
