@@ -14,7 +14,7 @@ import (
 
 	"github.com/WIZARDISHUNGRY/hls-await/internal/logger"
 	"github.com/WIZARDISHUNGRY/hls-await/internal/segment"
-	"github.com/WIZARDISHUNGRY/hls-await/internal/unixmsg"
+	"github.com/WIZARDISHUNGRY/hls-await/pkg/unixmsg"
 	"github.com/pkg/errors"
 )
 
