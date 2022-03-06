@@ -80,7 +80,7 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			defer cancel()
 			start := time.Now()
 			name := tsURL.String()
-			log.Info("getting", name)
+			log.Infof("getting %s", name)
 			tsResp, err := s.httpGet(ctx, name)
 			if err != nil {
 				return errors.Wrap(err, "httpGet")
@@ -137,6 +137,6 @@ func (s *Stream) handleSegments(ctx context.Context, mediapl *m3u8.MediaPlaylist
 			log.WithError(err).Error("processing segment")
 		}
 	}
-	log.Info("segs processed", segCount)
+	log.WithField("seg_count", segCount).Info("segs processed")
 	return nil
 }

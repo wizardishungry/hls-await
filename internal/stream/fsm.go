@@ -17,13 +17,13 @@ type FSM struct {
 
 func (s *Stream) PushEvent(ctx context.Context, str string) {
 	log := logger.Entry(ctx)
-	log.Trace("pushEvent", str)
+	log.Tracef("pushEvent: %s", str)
 	select {
 	case s.fsm.Target <- str:
 	case <-time.After(time.Second):
 		log.Warn("pushEvent hung")
 	}
-	log.Trace("pushEvent done", str)
+	log.Tracef("pushEvent done: %s", str)
 }
 
 //go:generate sh -c "cd ../../ && go run ./... -dump-fsm | dot -Nmargin=0.8 -s144 -Tsvg /dev/stdin -o fsm.svg"

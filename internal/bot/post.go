@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	maxAge = 2 * updateIntervalMinutes // Don't post old images
+	maxAge = 2 * updateIntervalMinutes * time.Minute // Don't post old images
 	minAge = 90 * time.Second
 )
 

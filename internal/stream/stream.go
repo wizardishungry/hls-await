@@ -164,14 +164,15 @@ func (s *Stream) processPlaylist(ctx context.Context) error {
 			sleepFor = minPollDuration
 		}
 		timer := time.NewTimer(pollDuration)
-		log.Info("processPlaylist elapsed time", elapsed)
-		log.Info("processPlaylist pollDuration", pollDuration)
+		log.WithField("elapsed_time", elapsed).
+			WithField("poll_duration", pollDuration).
+			Info("processPlaylist complete", elapsed)
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
 		}
-		log.Info("processPlaylist sleeping for", sleepFor)
+		log.WithField("duration", sleepFor).Info("processPlaylist sleeping")
 		select {
 		case <-ctx.Done():
 			return nil
