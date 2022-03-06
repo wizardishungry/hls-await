@@ -40,7 +40,7 @@ func (bs *BulkScore) ScoreImage(ctx context.Context, img image.Image) (float64, 
 		C:   make(chan bulkScoreResult, 1),
 	}
 	select {
-	case bs.input <- bsr: // TODO could panic
+	case bs.input <- bsr: // TODO could panic on closed chan
 	case <-ctx.Done():
 		return -1, ctx.Err()
 	}

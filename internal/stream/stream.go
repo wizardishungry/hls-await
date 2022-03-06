@@ -95,7 +95,7 @@ func newStream() *Stream {
 	}
 	return s
 }
-func (s *Stream) close() error { // TODO once
+func (s *Stream) close() error {
 	close(s.oneShot)
 	close(s.imageChan)
 	return nil

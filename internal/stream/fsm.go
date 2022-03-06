@@ -71,20 +71,6 @@ func (s *Stream) newFSM(ctx context.Context) *FSM {
 						if !up {
 							return
 						}
-						// img := func() image.Image {
-						// 	singleImageMutex.Lock()
-						// 	defer singleImageMutex.Unlock()
-						// 	return singleImage
-						// }()
-						//
-						// f := &bytes.Buffer{}
-						// err := png.Encode(f, img)
-						// if err != nil {
-						// 	log.Println("png.Encode", err)
-						// }
-						// TODO: action here
-						// _ = f
-
 					}
 				},
 			},
