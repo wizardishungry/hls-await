@@ -61,7 +61,7 @@ func (b *Bot) maybeDoPost(ctx context.Context, srcImages []imageRecord) ([]image
 	offset := len(srcImages) / numImages
 	images := make([]imageRecord, 0, numImages)
 	for i := 0; i < numImages; i++ {
-		img := srcImages[i*offset+(offset/2)] // for 100: 12,37,62,97 8: 1,3,5,7 12: 1,4,7,10; 16: 2,6,10,14 1000: 125,375,625,875
+		img := srcImages[i*offset+(offset/2)]
 		images = append(images, img)
 	}
 
