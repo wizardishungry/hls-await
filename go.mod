@@ -29,10 +29,13 @@ require (
 	github.com/dghubble/sling v1.4.0 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
+	github.com/mattn/go-mastodon v0.0.6 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
+	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 // indirect
 	golang.org/x/image v0.0.0-20210504121937-7319ad40d33e // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 )
